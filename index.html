@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>MUSIC LIFE · 音乐人生 RPG</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&family=Noto+Serif+SC:wght@500;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div id="boot-flash"></div>
+
+<!-- ============ INTRO / 角色创建 ============ -->
+<section id="screen-intro" class="screen active">
+  <div class="intro-stage">
+    <div class="intro-glow"></div>
+    <div class="intro-card">
+      <div class="intro-badge">MUSIC LIFE</div>
+      <h1 class="intro-title">音乐人生 <span>RPG</span></h1>
+      <p class="intro-sub">不是“看课程”，而是“成为一个音乐人”。</p>
+
+      <div class="intro-form">
+        <label>你的名字（游戏内称呼）</label>
+        <input id="inp-name" type="text" maxlength="12" placeholder="例如：夜行的钢琴手" autocomplete="off" />
+
+        <label>选择你的气质形象</label>
+        <div id="avatar-pick" class="avatar-pick"></div>
+
+        <label>你最想先点亮的天赋</label>
+        <div id="talent-pick" class="talent-pick"></div>
+      </div>
+
+      <button id="btn-start" class="btn-major">▶ 开始我的音乐人生</button>
+      <p class="intro-hint">首次进入需完成 <b>音乐能力检测</b>（约 3 分钟）。进度会自动保存在本机。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ MAIN APP ============ -->
+<div id="app" class="app" style="display:none">
+  <!-- Top bar -->
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">♪</span>
+      <span class="brand-text">MUSIC&nbsp;LIFE</span>
+    </div>
+    <nav class="topmenu" id="topmenu"></nav>
+    <div class="topright">
+      <div class="topright-info" id="topright-info"></div>
+      <button id="btn-reset" class="mini-btn" title="重置存档">⟳ 重置</button>
+    </div>
+  </header>
+
+  <!-- Left: character -->
+  <aside class="col-left" id="col-left"></aside>
+
+  <!-- Center: view -->
+  <main class="col-center" id="view"></main>
+
+  <!-- Right: AI mentor -->
+  <aside class="col-right" id="col-right"></aside>
+
+  <!-- Bottom nav -->
+  <nav class="botnav" id="botnav"></nav>
+</div>
+
+<!-- Toast / floating layer -->
+<div id="toast-layer"></div>
+<div id="modal-layer"></div>
+
+<script src="js/data.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/app.js"></script>
+<script src="js/learn.js"></script>
+<script src="js/arrange.js"></script>
+</body>
+</html>

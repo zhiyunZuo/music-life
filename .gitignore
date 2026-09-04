@@ -1,0 +1,10 @@
+# 项目内部数据（WorkBuddy 会话/记忆），不进仓库
+.workbuddy/
+
+# 本地测试脚本（Node 冒烟测试），非站点运行所需
+_smoke.js
+
+# 依赖 / 日志
+node_modules/
+*.log
+.DS_Store
