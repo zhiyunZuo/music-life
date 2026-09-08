@@ -14,9 +14,9 @@ function defaultState(){
   return {
     name:"音乐人", avatar:"🎧", talent:"piano",
     level:1, exp:0, expNext:500, sp:3,
-    rep:0, income:0, works:0, performances:0,
+    rep:0, income:0, works:0,worldDone:0, performances:0,
     skills:{piano:3, theory:3, ear:3, prod:1, perf:2, compose:2},
-    skillNodes:{}, quests:[], questDate:"", portfolio:[],
+    skillNodes:{}, quests:[], questDate:"", portfolio:[],portfolioWorks:[],
     studioStep:0, instruments:inst, mentorLog:[],
     eventsDone:0, lastEvent:"", badges:[]
   };
@@ -173,30 +173,22 @@ const NAV = [
   {id:"practice",em:"🎵",nm:"练习"},{id:"instruments",em:"🎹",nm:"乐器"},
   {id:"studio",em:"💻",nm:"工作室"},{id:"compose",em:"🎼",nm:"作曲"},
   {id:"ear",em:"👂",nm:"听力"},{id:"career",em:"🎓",nm:"职业"},
-  {id:"mentor",em:"🤖",nm:"AI导师"},{id:"portfolio",em:"📁",nm:"作品集"}
+  {id:"portfolio",em:"📁",nm:"作品集"}
 ];
 let currentView = "home";
 function buildNav(){
   $("botnav").innerHTML = NAV.map(n=>
     `<button class="nav-item" data-view="${n.id}"><span class="em">${n.em}</span>${n.nm}</button>`).join("");
   $("botnav").querySelectorAll(".nav-item").forEach(b=>{
-    b.onclick = ()=>{
-      const v = b.dataset.view;
-      if(v==="mentor"){ openMentor(); return; }
-      showView(v);
-    };
+    b.onclick = ()=> showView(b.dataset.view);
   });
 }
 function buildTopMenu(){
-  const items=[{t:"学习地图",v:"home"},{t:"练习",v:"practice"},{t:"作品",v:"portfolio"},{t:"舞台",v:"career"},{t:"AI导师",v:"mentor"}];
+  const items=[{t:"学习地图",v:"home"},{t:"练习",v:"practice"},{t:"作品",v:"portfolio"},{t:"舞台",v:"career"}];
   const m=$("topmenu");
   if(!m) return;
   m.innerHTML = items.map(it=>`<a data-v="${it.v}">${it.t}</a>`).join("");
-  m.querySelectorAll("a").forEach(a=> a.onclick=()=>{
-    const v=a.dataset.v;
-    if(v==="mentor"){ openMentor(); return; }
-    showView(v);
-  });
+  m.querySelectorAll("a").forEach(a=> a.onclick=()=> showView(a.dataset.v));
 }
 function showView(v){
   currentView = v;
@@ -205,120 +197,6 @@ function showView(v){
   const tm=$("topmenu"); if(tm) tm.querySelectorAll("a").forEach(a=> a.classList.toggle("active", a.dataset.v===v));
   const fn = VIEWS[v]; if(fn) fn();
   $("view").scrollTop = 0;
-}
-function openMentor(){
-  if(window.innerWidth <= 1080){
-    // mobile: render mentor in center
-    $("view").innerHTML = `<div class="section-title"><span class="em">🤖</span>AI 音乐导师</div>
-      <div class="lead">随时提问任何音乐问题，导师会结合你的等级、练习与作品来回答。</div>
-      <div id="m-mobile" style="height:62vh;display:flex;flex-direction:column"></div>`;
-    buildMentor($("m-mobile"));
-    $("botnav").querySelectorAll(".nav-item").forEach(b=>b.classList.toggle("active",b.dataset.view==="mentor"));
-    currentView="mentor";
-  } else {
-    const r = $("col-right"); r.style.transition="box-shadow .3s"; r.style.boxShadow="0 0 0 2px var(--gold-bright)";
-    r.scrollIntoView({behavior:"smooth"});
-    setTimeout(()=> r.style.boxShadow="", 1200);
-    const inp = r.querySelector(".mentor-input input");
-    if(inp) inp.focus();
-  }
-}
-
-/* ---------------- Mentor ---------------- */
-function buildMentor(container){
-  S.mentorLog = S.mentorLog || [];
-  const log = S.mentorLog;
-  if(log.length===0){
-    log.push({role:"ai",text:"你好，"+S.name+"！我是你的 AI 音乐导师 🎓。你可以问我任何音乐问题——为什么这个和弦忧伤、怎么给旋律配和弦、不会即兴怎么办……我都会结合你现在的_level "+S.level+" 与练习来回答。"});
-  }
-  const chips = ["为什么这个和弦听起来忧伤？","我不会即兴怎么办？","怎么给这段旋律配和弦？","为什么我的编曲听起来很空？","今天的练习计划？"];
-  container.innerHTML = `
-    <div class="mentor-head"><span class="em">🎓</span>
-      <div><div class="mt">AI MUSIC MENTOR</div><div class="ms">结合你的等级 · 练习 · 作品作答</div></div></div>
-    <div class="mentor-body" id="m-body"></div>
-    <div class="mentor-chips">${chips.map(c=>`<span class="mchip">${c}</span>`).join("")}</div>
-    <div class="mentor-input"><input id="m-in" placeholder="问导师任何音乐问题…" />
-      <button id="m-send">发送</button></div>`;
-  const body = container.querySelector("#m-body");
-  function paint(){
-    body.innerHTML = log.slice(-30).map(m=>
-      `<div class="msg ${m.role}"><div class="who">${m.role==="ai"?"🎓 导师":"🙂 你"}</div>${m.text}</div>`).join("");
-    body.scrollTop = body.scrollHeight;
-  }
-  paint();
-  function ask(text){
-    text = text.trim(); if(!text) return;
-    log.push({role:"me",text}); paint();
-    container.querySelector("#m-in").value="";
-    const typing = document.createElement("div");
-    typing.className="typing"; typing.textContent="导师正在思考…"; body.appendChild(typing);
-    body.scrollTop = body.scrollHeight;
-    setTimeout(()=>{
-      typing.remove();
-      const ans = mentorAnswer(text);
-      log.push({role:"ai",text:ans}); paint(); save();
-    }, 520);
-  }
-  container.querySelector("#m-send").onclick = ()=> ask(container.querySelector("#m-in").value);
-  container.querySelector("#m-in").onkeydown = e=>{ if(e.key==="Enter") ask(container.querySelector("#m-in").value); };
-  container.querySelectorAll(".mchip").forEach(c=> c.onclick=()=> ask(c.textContent));
-  window.ML.mentorAsk = ask;
-  window.ML.mentorPaint = paint;
-  window.ML._defaultChipsHTML = container.querySelector(".mentor-chips").innerHTML;
-}
-
-/* 让右侧 AI 导师绑定到当前选中的知识节点 */
-function rebindMentorChips(box){
-  box.querySelectorAll(".mchip").forEach(c=> c.onclick=()=>{ if(window.ML.mentorAsk) window.ML.mentorAsk(c.textContent); });
-}
-function mentorRecs(id){
-  const map = {
-    triad:["三和弦由哪几个音构成？","为什么三度堆叠最稳定？","在钢琴上怎么弹出 C 大三和弦？","给我一个听辨练习"],
-    majmin:["为什么大三和弦听起来明亮？","小三和弦一般用在什么情绪里？","怎么在钢琴上构成小三和弦？","测试我是否真的听辨得出"],
-    dom7:["属七和弦为什么想‘回家’？","听一次 G7 解决到 C","怎么构建属七和弦？","给我一个听辨练习"],
-    secdom:["什么是副属和弦？","听一次 V/V 解决到 V","副属和弦在流行歌里怎么用？","测试我对离调的理解"],
-    cadence:["终止式为什么像标点符号？","V→I 和 I→V 区别在哪？","写歌时怎么用半终止吊胃口？","测试我是否分得清"],
-    fivescale:["五声音阶为什么‘怎么弹都和谐’？","五声音阶和七声大调区别？","在钢琴上弹出 C 五声","测试我的听觉"]
-  };
-  return map[id] || ["这个概念的核心是什么？","在钢琴上怎么弹？","给我一个听辨练习","测试我是否真的理解"];
-}
-function bindMentor(lessonId){
-  const headMs = document.querySelector(".mentor-head .ms");
-  const chipsBox = document.querySelector(".mentor-chips");
-  if(!headMs || !chipsBox) return; // 导师尚未构建（如移动端未打开）→ 安全跳过
-  S.mentorLog = S.mentorLog || [];
-  const log = S.mentorLog;
-  if(!lessonId){
-    headMs.textContent = "结合你的等级 · 练习 · 作品作答";
-    chipsBox.innerHTML = window.ML._defaultChipsHTML || "";
-    rebindMentorChips(chipsBox);
-    window.ML._mentorCtx = null;
-    return;
-  }
-  const l = D.LESSONS.find(x=>x.id===lessonId); if(!l) return;
-  headMs.textContent = "当前课程：" + l.title;
-  const recs = mentorRecs(l.id);
-  chipsBox.innerHTML = recs.map(c=>`<span class="mchip">${c}</span>`).join("");
-  rebindMentorChips(chipsBox);
-  if(window.ML._mentorCtx !== lessonId){
-    window.ML._mentorCtx = lessonId;
-    log.push({role:"ai", text:`你正在学习：「${l.title}」。` + (l.concept? l.concept.simple : "") + ` 有任何不懂的，点下面的推荐问题，或直接问我。`});
-    if(window.ML.mentorPaint) window.ML.mentorPaint();
-    save();
-  }
-}
-function mentorAnswer(text){
-  const t = text.toLowerCase();
-  for(const item of D.MENTOR_KB){
-    if(item.k.some(k=> text.includes(k) || t.includes(k.toLowerCase()))) return item.a;
-  }
-  // contextual fallback
-  const ds = derivedSkills();
-  const top = ds.slice().sort((a,b)=>b.v-a.v)[0];
-  const weak = ds.slice().sort((a,b)=>a.v-b.v)[0];
-  return `好问题。结合你现在 LV.${S.level}、最擅长「${top.nm}」、相对薄弱的是「${weak.nm}」，`+
-    `我建议：先把基础概念弄清楚，再在对应区域（技能树 / 和声实验室 / 听力洞窟）里反复‘玩’出来。`+
-    `你可以问我更具体的，例如某个和弦、某位作曲家、或你的练习安排。`;
 }
 
 /* ---------------- Home ---------------- */
@@ -500,31 +378,133 @@ function drawRadar(cv, data){
 }
 
 /* ---------------- World Map ---------------- */
+/* ---------------- 音乐世界：每个区域都是真实可探索的知识区域 ---------------- */
+const REGION_DETAIL = {
+  classical:{nm:"古典之城",topics:[["cl-baroque","巴洛克"],["cl-classic","古典主义"],["cl-rom","浪漫主义"],["cl-imp","印象主义"]],
+    works:[["平均律键盘曲集","J.S. Bach","48 首前奏曲与赋格，是复调与调性的百科全书"],["钢琴奏鸣曲 Op.49 No.2","Beethoven","奏鸣曲式的清晰范例"],["夜曲 Op.9 No.2","Chopin","歌唱性旋律与 rubato 的典范"]],
+    audio:{type:"prog",chords:[{root:60,iv:[0,4,7]},{root:65,iv:[0,4,7]},{root:62,iv:[0,3,7]},{root:60,iv:[0,4,7]}],step:1.0,dur:0.9},
+    task:"选一首 Bach 的《C 大调创意曲 BWV 772》，分三步：① 只弹右手；② 只弹左手；③ 合手但让右手稍响。录音检查能否听清两条线。"},
+  harmony:{nm:"和声森林",topics:[["h-conn","和弦连接 / 四部和声"],["h-borrow","借用和弦"],["h-extend","延伸和弦"],["h-subst","替代和弦"],["h-modal","调式 / 爵士和声"]],
+    works:[["Gott erhalte","Haydn","四部和声的教科书范例"],["《Bohemian Rhapsody》","Queen","♭VI–♭VII 借用和弦的流行范例"],["《Autumn Leaves》","Kosma","ii–V–I 的听觉标准"]],
+    audio:{type:"prog",chords:[{root:62,iv:[0,3,7,10]},{root:55,iv:[0,4,7,10]},{root:60,iv:[0,4,7,11]}],step:1.0,dur:0.9},
+    task:"在 C 大调弹出 I–vi–IV–V，然后把它改成 I–♭VI–♭VII–V（借用和弦版本），对比两种色彩：前者明亮叙事，后者沧桑有力。"},
+  earcave:{nm:"练耳洞窟",topics:[["ear-int","音程听辨"],["ear-chord","和弦与色彩听辨"],["ear-prog","进行与功能听辨"],["ear-mode","调式判断"]],
+    drill:"mixed",
+    works:[["《小星星》","传统","大二度的记忆锚点"],["《婚礼进行曲》","Wagner","纯四度的记忆锚点"],["《星球大战》主题","Williams","纯五度的记忆锚点"]],
+    audio:{type:"chord",root:60,iv:[0,4,7,10],dur:1.4},
+    task:"做一轮 10 题音程听辨：只用参考曲记忆法（大二度=小星星、纯四度=婚礼进行曲、纯五度=星球大战），目标正确率 80% 以上。"},
+  proddist:{nm:"制作人工坊",topics:[["dw-setup","工程搭建"],["dw-edit","编辑与量化"],["dw-mix","DAW 内混音"],["dw-master","导出与母带"]],
+    works:[["《Billie Jean》","Michael Jackson","鼓组与贝斯 groove 的制作典范"],["《Get Lucky》","Daft Punk","clean guitar 与压缩的现代制作"],["《Blinding Lights》","The Weeknd","合成器音色与空间设计"]],
+    audio:{type:"chord",root:57,iv:[0,3,7,10],dur:1.2},
+    task:"在你的 DAW 里建立一个模板工程：标记好轨道颜色（鼓/贝斯/和声/旋律/人声）、设置好采样率（44.1k 或 48k）、预置一个总线与混响返回轨。"},
+  guitar:{nm:"吉他街",instrument:"guitar",
+    works:[["《Wonderwall》","Oasis","开放和弦 + 扫弦的入门必弹"],["《Hotel California》","Eagles","八小节循环与双吉他编配"],["《Blackbird》","The Beatles","指弹编配的典范"]],
+    audio:{type:"chord",root:48,iv:[0,4,7,9],dur:1.4},
+    task:"用 C–G–Am–F 做和弦转换练习（节拍器 60，每小节一换），逐弦检查有没有闷音；熟练后提速到 80。"},
+  orchestra:{nm:"交响大厅",topics:[["or-string","弦乐组"],["or-wood","木管组"],["or-brass","铜管组"],["or-energy","力度与能量"]],
+    works:[["《第五交响曲》","Beethoven","动机发展与配器能量的典范"],["《行星组曲·木星》","Holst","铜管与弦乐的能量构建"],["《春之声》","Strauss","木管的轻盈与圆舞曲律动"]],
+    audio:{type:"prog",chords:[{root:48,iv:[0,7]},{root:53,iv:[0,7]},{root:60,iv:[0,4,7]},{root:55,iv:[0,4,7,10]}],step:1.1,dur:1.0},
+    task:"为同一段 8 小节旋律做两次配器：① 只用弦乐（抒情、连贯）；② 加入铜管（辉煌、有冲击力）。对比能量差异，说明你用了什么手段。"},
+  eastern:{nm:"东方乐村",topics:[["fk-mode","笙箫的音律与演奏"]],instrument:"xiao",
+    works:[["《春江花月夜》","中国传统","五声调式与音色层次的典范"],["《二泉映月》","华彦钧","线性旋律与气息表达"],["《百鸟朝凤》","民间唢呐曲","模仿性音色与装饰技法"]],
+    audio:{type:"seq",notes:[{m:60,d:0.5,gap:0.52},{m:62,d:0.5,gap:0.52},{m:64,d:0.5,gap:0.52},{m:67,d:0.5,gap:0.52},{m:69,d:0.9,gap:0.92}]},
+    task:"用五声音阶（宫商角徵羽 = do re mi sol la）即兴一段旋律：只用这五个音，不做半音。你会立刻听到「中国风」的骨架。然后试着在句尾加一个下滑的装饰音。"},
+  stage:{nm:"表演舞台",topics:[["ex-param","表达参数"],["ex-lab","表达实验"],["ac-follow","跟随歌手"]],
+    works:[["《Bohemian Rhapsody》","Queen","段落对比与舞台能量的极端范例"],["《Someone Like You》","Adele","极简伴奏与声乐表情"],["《Imagine》","John Lennon","钢琴伴奏与人声的平衡"]],
+    audio:{type:"prog",chords:[{root:60,iv:[0,4,7]},{root:57,iv:[0,3,7]},{root:53,iv:[0,4,7]},{root:55,iv:[0,4,7]}],step:1.1,dur:0.9},
+    task:"同一段旋律录两个版本：A 无任何表情（严格按谱），B 加入速度弹性、力度起伏与乐句方向。让朋友盲听，问哪个更像「在说话」。"},
+  film:{nm:"影视配乐棚",topics:[["fm-cue","配乐段落写作"],["fm-leit","主导动机"]],
+    works:[["《星际穿越》","Hans Zimmer","管风琴音色与极简和声营造宏大时间感"],["《指环王》","Howard Shore","主导动机体系与角色绑定"],["《千与千寻》","久石让","钢琴与弦乐的简洁叙事"]],
+    audio:{type:"prog",chords:[{root:53,iv:[0,4,7]},{root:60,iv:[0,4,7,11]},{root:57,iv:[0,3,7]}],step:1.6,dur:1.4},
+    task:"为一段 30 秒的无声画面（自己找一段）写一段配乐：只用一个和弦循环 + 一个旋律动机，标出 3 个同步点（画面事件与音乐重音对齐）。"},
+  game:{nm:"游戏音乐实验场",topics:[["gm-adapt","自适应与分层"],["gm-loop","循环音乐"]],
+    works:[["《超级马力欧》主题","近藤浩治","可循环旋律与节奏驱动"],["《塞尔达传说》","近藤浩治","探索音乐与空间感"],["《Journey》","Austin Wintory","自适应音乐与情感曲线"]],
+    audio:{type:"prog",chords:[{root:57,iv:[0,3,7]},{root:60,iv:[0,4,7]},{root:62,iv:[0,3,7]},{root:55,iv:[0,4,7]}],step:0.8,dur:0.7},
+    task:"写一段 8 小节可无缝循环的战斗音乐：开头与结尾的和声要能接上（常用 V → I 回到循环起点），并且至少有两层（基础层 + 加鼓的强化层）。"},
+  jazz:{nm:"爵士俱乐部",topics:[["jz-blues","Blues"],["jz-iivi","ii–V–I"],["jz-impro","爵士即兴"]],
+    works:[["《So What》","Miles Davis","只有两个和弦的即兴，靠动机与空间"],["《Autumn Leaves》","Kosma","ii–V–I 的标准教材"],["《Take Five》","Desmond","5/4 拍与非常规曲式"]],
+    audio:{type:"prog",chords:[{root:62,iv:[0,3,7,10]},{root:55,iv:[0,4,7,10]},{root:60,iv:[0,4,7,11]}],step:1.0,dur:0.9},
+    task:"在 ii–V–I（Dm7–G7–Cmaj7）上做四轮即兴：① 只用和弦音；② 加经过音；③ 每句结尾用半音 enclosure 落到下一和弦的 3 音；④ 整体延后半拍起句。"},
+  exp:{nm:"实验场",topics:[["im-free","自由即兴"],["st-fuse","风格融合"],["sd-synth","合成音色"]],
+    works:[["《Music for Airports》","Brian Eno","ambient 与非目的性音乐"],["《The Köln Concert》","Keith Jarrett","自由即兴的结构与能量"],["《Revolution 9》","The Beatles","拼贴与声音实验"]],
+    audio:{type:"chord",root:60,iv:[0,2,4,7,9],dur:2.0},
+    task:"做一次 3 分钟自由即兴，唯一规则：只用 5 个音（五声音阶），且必须包含至少 3 次 4 秒以上的完全静默。录音后画出能量曲线，检查是否有起伏。"}
+};
 function renderWorld(){
   const regions = D.REGIONS.map(r=>{
-    const locked = S.level < r.unlock;
-    return `<div class="region ${locked?'locked':''}" data-id="${r.id}" style="background:${r.grad}">
-      ${locked?`<span class="rg-lk">🔒 LV.${r.unlock}</span>`:`<span class="rg-lk" style="color:#3ddc97">✓ 已解锁</span>`}
+    const D2 = REGION_DETAIL[r.id] || {nm:r.nm};
+    return `<div class="region" data-id="${r.id}" style="background:${r.grad}">
       <span class="rg-em">${r.em}</span>
-      <div class="rg-nm">${r.nm}</div><div class="rg-ds">${r.ds}</div>
+      <div class="rg-nm">${D2.nm||r.nm}</div><div class="rg-ds">${r.ds}</div>
     </div>`;
   }).join("");
   $("view").innerHTML = `
     <div class="kicker">WORLD OF MUSIC</div>
     <h1 class="section-title"><span class="em">🗺</span>音乐世界地图</h1>
-    <p class="lead">随着等级提升，更多区域逐渐解锁。点击已解锁区域前往对应的练习与试炼。</p>
+    <p class="lead">每个区域都是一个真正可探索的知识世界：领域知识、经典作品、可播放的音乐例子、互动练习与实际任务。</p>
     <div class="map-grid">${regions}</div>`;
   $("view").querySelectorAll(".region").forEach(r=>{
-    r.onclick = ()=>{
-      const id=r.dataset.id; const reg=D.REGIONS.find(x=>x.id===id);
-      if(S.level < reg.unlock){ toast("尚未解锁，需 LV."+reg.unlock,"🔒"); return; }
-      const map = {classical:"practice",harmony:"practice",earcave:"ear",proddist:"studio",
-        guitar:"instruments",orchestra:"instruments",eastern:"instruments",stage:"practice",
-        film:"compose",game:"compose",jazz:"practice",exp:"compose"};
-      toast("前往 "+reg.nm,"🚪");
-      showView(map[id]||"practice");
-    };
+    r.onclick=()=> openRegion(r.dataset.id);
   });
+}
+function openRegion(id){
+  const reg = D.REGIONS.find(x=>x.id===id);
+  const R = REGION_DETAIL[id];
+  if(!R){ toast("这个区域正在建设","🚧"); return; }
+  const topics = (R.topics||[]).map(t=>`<div class="kn-row" data-topic="${t[0]}">
+      <span class="kn-em">📖</span><span class="kn-t">${t[1]}</span><span class="kn-s">进入 →</span></div>`).join("");
+  const works = (R.works||[]).map(w=>`<div class="wk-row">
+      <div class="wk-t">《${w[0]}》</div><div class="wk-c">${w[1]}</div><div class="wk-n">${w[2]}</div></div>`).join("");
+  $("view").innerHTML = `
+    <div class="kicker">${reg.em} ${R.nm}</div>
+    <h1 class="section-title"><span class="em">${reg.em}</span>${R.nm}</h1>
+    <div class="mrow"><button class="btn ghost sm" id="rg-back">← 返回世界地图</button></div>
+
+    <div class="panel"><div class="sec-tag">① 领域知识</div>
+      ${topics?`<div>${topics}</div>`:`<div class="lnote">这一区域以实践为主，直接进入下面的互动与任务。</div>`}
+      ${R.instrument?`<div class="kn-row" data-inst="${R.instrument}"><span class="kn-em">🎸</span><span class="kn-t">进入乐器知识库</span><span class="kn-s">进入 →</span></div>`:""}
+    </div>
+
+    <div class="panel"><div class="sec-tag">② 经典作品</div>${works}</div>
+
+    <div class="panel"><div class="sec-tag">③ 音乐例子</div>
+      <div class="mrow"><button class="btn sm gold" id="rg-play">🔊 播放示例</button>
+        <span class="lab-note">点一次听一遍，用来建立这个区域的听觉印象。</span></div>
+    </div>
+
+    <div class="panel"><div class="sec-tag">④ 互动内容</div>
+      <div class="lnote">在键盘上试着弹出这个区域的和声与旋律；点「回放」听你刚弹的。</div>
+      <div class="piano-wrap" id="rg-piano" style="margin-top:10px"></div>
+      <div class="mrow"><button class="btn sm" id="rg-replay">↻ 回放</button><button class="btn ghost sm" id="rg-clear">清空</button></div>
+      ${R.drill?`<div style="margin-top:12px"><button class="btn sm gold" id="rg-drill">🎧 开始一轮听辨训练</button></div><div id="rg-drillbox"></div>`:""}
+    </div>
+
+    <div class="panel"><div class="sec-tag">⑤ 实际任务</div>
+      <div class="lnote">${R.task||""}</div>
+      <div class="mrow"><button class="btn gold" id="rg-done">完成这个任务 (+25 EXP)</button></div>
+    </div>`;
+  $("rg-back").onclick=renderWorld;
+  $("view").querySelectorAll("[data-topic]").forEach(b=>{
+    b.onclick=()=>{ if(window.ML && ML.openLesson) ML.openLesson(b.dataset.topic); else { showView("learn"); toast("去知识地图找这一课","📚"); } };
+  });
+  $("view").querySelectorAll("[data-inst]").forEach(b=>{
+    b.onclick=()=>{ showView("instruments"); setTimeout(()=>openInstrument(b.dataset.inst),0); };
+  });
+  $("rg-play").onclick=()=>{
+    const a=R.audio; if(!a) return;
+    if(a.type==="prog") a.chords.forEach((c,i)=> setTimeout(()=>AE.chord(c.iv,c.root,a.dur||0.9), i*(a.step||1)*1000));
+    else if(a.type==="seq") AE.playMidi(a.notes);
+    else AE.chord(a.iv,a.root,a.dur||1.2);
+  };
+  let rec=[];
+  if(window.buildPiano) try{ window.buildPiano($("rg-piano"), m=>rec.push(m)); }catch(e){}
+  $("rg-replay").onclick=()=>{ if(!rec.length){ toast("先在键盘上弹点什么","🎹"); return;} AE.playMidi(rec.map(m=>({m,d:0.4,gap:0.42}))); };
+  $("rg-clear").onclick=()=>{ rec=[]; };
+  if(R.drill) $("rg-drill").onclick=()=>{
+    if(window.EAR && window.EAR.render){ window.EAR.render($("rg-drillbox"), {}); }
+    else toast("听辨训练请到「练耳」课程","🎧");
+  };
+  $("rg-done").onclick=()=>{ addExp(25); S.worldDone=(S.worldDone||0)+1; save(); renderShell(); toast(R.nm+" 任务完成 +25 EXP","🎯","xp"); };
 }
 
 /* ---------------- Practice / Skill tree ---------------- */
@@ -594,88 +574,101 @@ function renderPractice(){
 }
 
 /* ---------------- Instruments ---------------- */
+/* ---------------- 乐器知识库：直接进入学习，无检测 / 无等级 / 无解锁 ---------------- */
 function renderInstruments(){
+  const lib = window.INSTRUMENT_LIB || {};
   const cards = D.INSTRUMENTS.map(i=>{
-    const lv = S.instruments[i.id]?S.instruments[i.id].level:0;
-    const det = S.instruments[i.id]&&S.instruments[i.id].detected;
+    const L = lib[i.id];
+    const n = L? L.nodes.length : 0;
+    const st = S.instruments[i.id] || {};
+    const done = (st.done||[]).length;
     return `<div class="inst-card" data-id="${i.id}">
       <div class="iem">${i.em}</div>
       <div class="inm">${i.nm}</div>
-      <div class="ild">${i.ds}</div>
-      <div class="ilv">${det?("LV."+lv+" · "+i.mentor):"未检测 →"}</div>
+      <div class="ild">${L? L.ds : i.ds}</div>
+      <div class="ilv">${L? (n+" 节知识 · 已学 "+done) : "即将上线"}</div>
     </div>`;
   }).join("");
   $("view").innerHTML = `
     <div class="kicker">INSTRUMENT ACADEMY</div>
-    <h1 class="section-title"><span class="em">🎹</span>乐器学院</h1>
-    <p class="lead">每种乐器都走“检测 → 学习 → 游戏 → 实战”。已会弹琴的人不会从“认识弦”重新开始。</p>
+    <h1 class="section-title"><span class="em">🎹</span>乐器知识库</h1>
+    <p class="lead">选一件乐器，直接进入它的专属知识体系。没有等级检测、没有解锁——每一节都有专业讲解、实际示范、音乐应用与操作练习。</p>
     <div class="inst-grid">${cards}</div>`;
   $("view").querySelectorAll(".inst-card").forEach(c=>{
-    c.onclick=()=> openInstrument(c.dataset.id);
+    c.onclick=()=>{ const id=c.dataset.id;
+      if(!lib[id]){ toast("这件乐器的知识库正在整理","🎼"); return; }
+      openInstrument(id); };
   });
 }
 function openInstrument(id){
+  const L = window.INSTRUMENT_LIB[id];
+  if(!L) return;
   const i = D.INSTRUMENTS.find(x=>x.id===id);
-  const inst = S.instruments[id];
-  if(!inst.detected){
-    // detection
-    const qa = [
-      {q:"你是否能认出它的基本音/弦？",o:["完全不会","大概知道","很熟悉"]},
-      {q:"你是否做过基础练习（音阶/空弦/长音）？",o:["没练过","偶尔","系统练习"]},
-      {q:"你能否演奏一首完整小品？",o:["不能","一点点","可以"]},
-      {q:"你是否了解记谱/指法体系？",o:["不了解","知道一些","熟悉"]}
-    ];
-    modal(`
-      <h3>🔍 检测你的${i.nm}水平</h3>
-      <div class="msub">系统通过几个问题判断你的真实起点，从对应节点开始。</div>
-      <div id="det-box"></div>
-      <div class="mrow" style="justify-content:flex-end">
-        <button class="btn ghost" onclick="ML.closeM()">取消</button>
-        <button class="btn" id="det-go">开始检测</button>
-      </div>`);
-    let step=0;
-    const box=$("det-box");
-    function renderDet(){
-      if(step<qa.length){
-        box.innerHTML = `<div class="panel" style="margin:0">
-          <div class="qt" style="color:#f3ead6;font-size:14px;margin-bottom:8px">${step+1}. ${qa[step].q}</div>
-          ${qa[step].o.map((o,k)=>`<button class="event-opt" data-k="${k}" style="width:100%;margin-bottom:6px">${["🔴","🟡","🟢"][k]} ${o}</button>`).join("")}
-        </div>`;
-        box.querySelectorAll(".event-opt").forEach(b=> b.onclick=()=>{ step++; renderDet(); });
-      } else {
-        const lv = 3; // baseline derived; could randomize
-        const level = 2 + Math.floor(Math.random()*3); // 2-4
-        inst.detected=true; inst.level=level;
-        S.skills[nodeCatFromInst(id)] = clamp(S.skills[nodeCatFromInst(id)] || level, 0, 10);
-        addExp(30);
-        save(); renderShell();
-        box.innerHTML = `<div class="panel" style="margin:0;text-align:center">
-          <div class="lu-em" style="font-size:54px">${i.em}</div>
-          <h3 style="margin:8px 0">${i.nm} Level ${level}</h3>
-          <div class="msub">检测完成！从对应节点开始你的${i.nm}之旅。导师：${i.mentor}</div>
-          <button class="btn gold" id="det-ok">进入学习</button></div>`;
-        $("det-ok").onclick=()=>{ closeModal(); renderInstruments(); toast(i.nm+" 检测完成 LV."+level,"✨"); };
-      }
-    }
-    renderDet();
-    $("det-go").onclick=()=>{ step=0; renderDet(); };
-  } else {
-    modal(`
-      <h3>${i.em} ${i.nm} · LV.${inst.level}</h3>
-      <div class="msub">导师：${i.mentor}。当前路线包含：基础 → 技术 → 乐曲 → 表现。</div>
-      <div class="panel" style="margin:0">
-        <div class="today-line"><span class="tm">L1</span><span class="tx">基础指法 / 音准</span></div>
-        <div class="today-line"><span class="tm">L2</span><span class="tx">技术练习（音阶/弓法/和弦）</span></div>
-        <div class="today-line"><span class="tm">L3</span><span class="tx">乐曲演奏</span></div>
-        <div class="today-line"><span class="tm">L4+</span><span class="tx">音乐表现与风格</span></div>
+  const st = S.instruments[id] || (S.instruments[id]={level:0,detected:true,done:[]});
+  if(!st.done) st.done=[];
+  st.detected = true;
+  const groups = ["入门","进阶","高级"].map(g=>{
+    const ns = L.nodes.map((n,k)=>({n,k})).filter(o=>(o.n.lv||"入门")===g);
+    if(!ns.length) return "";
+    const tag = g==="入门"?"①":g==="进阶"?"②":"③";
+    return `<div class="panel">
+      <div class="sec-tag">${tag} ${g}</div>
+      ${ns.map(o=>`<div class="kn-row" data-k="${o.k}">
+        <span class="kn-em">${o.n.em}</span>
+        <span class="kn-t">${o.n.t}</span>
+        <span class="kn-s">${st.done.indexOf(o.n.id)>=0?"✓ 已学":""}</span>
+      </div>`).join("")}
+    </div>`;
+  }).join("");
+  const pct = Math.round(st.done.length / L.nodes.length * 100);
+  $("view").innerHTML = `
+    <div class="kicker">${i.em} ${L.nm} LIBRARY</div>
+    <h1 class="section-title"><span class="em">${i.em}</span>${L.nm}知识库</h1>
+    <p class="lead">${L.intro}</p>
+    <div class="panel">
+      <div class="mrow">
+        <button class="btn ghost sm" id="inst-back">← 返回乐器</button>
+        <span class="lab-note" style="margin-left:auto">进度 ${st.done.length} / ${L.nodes.length} 节（${pct}%）</span>
       </div>
-      <div class="mrow" style="justify-content:flex-end;margin-top:14px">
-        <button class="btn ghost" onclick="ML.closeM()">关闭</button>
-        <button class="btn gold" id="inst-prac">完成一次练习 (+25 EXP)</button>
-      </div>`);
-    $("inst-prac").onclick=()=>{ addExp(25); inst.level=clamp(inst.level+ (Math.random()>0.6?1:0),0,10);
-      save(); renderShell(); closeModal(); toast(i.nm+" 练习完成","🎯","xp"); };
-  }
+    </div>
+    ${groups}`;
+  $("inst-back").onclick=renderInstruments;
+  $("view").querySelectorAll(".kn-row").forEach(r=>{
+    r.onclick=()=> openInstNode(id, +r.dataset.k);
+  });
+}
+function openInstNode(id, k){
+  const L = window.INSTRUMENT_LIB[id];
+  const n = L.nodes[k];
+  const st = S.instruments[id]; if(!st.done) st.done=[];
+  const isDone = st.done.indexOf(n.id)>=0;
+  const isLast = k >= L.nodes.length-1;
+  $("view").innerHTML = `
+    <div class="kicker">${L.nm} · ${n.lv||"入门"}</div>
+    <h1 class="section-title"><span class="em">${n.em}</span>${n.t}</h1>
+    <div class="panel"><div class="sec-tag">① 专业讲解</div><div class="lnote">${n.explain}</div></div>
+    <div class="panel"><div class="sec-tag">② 实际示范</div><div class="lnote">${n.demo}</div></div>
+    <div class="panel"><div class="sec-tag">③ 音乐应用</div><div class="lnote">${n.apply}</div></div>
+    <div class="panel"><div class="sec-tag">④ 操作练习</div><div class="lnote">${n.task}</div>
+      <div class="piano-wrap" id="ik-piano" style="margin-top:10px"></div>
+      <div class="mrow"><button class="btn sm" id="ik-replay">↻ 回放</button><button class="btn ghost sm" id="ik-clear">清空</button></div>
+    </div>
+    <div class="panel"><div class="sec-tag">⑤ 完成与继续</div>
+      <div class="mrow">
+        <button class="btn ghost" id="ik-back">← 返回目录</button>
+        <button class="btn gold" id="ik-done">${isDone?(isLast?"✓ 已学 · 回到目录":"✓ 已学 · 下一节 →"):"完成这一节 →"}</button>
+      </div>
+    </div>`;
+  let rec=[];
+  if(window.buildPiano) try{ window.buildPiano($("ik-piano"), m=>rec.push(m)); }catch(e){}
+  $("ik-replay").onclick=()=>{ if(!rec.length){ toast("先在键盘上弹点什么","🎹"); return;} AE.playMidi(rec.map(m=>({m,d:0.4,gap:0.42}))); };
+  $("ik-clear").onclick=()=>{ rec=[]; };
+  $("ik-back").onclick=()=> openInstrument(id);
+  $("ik-done").onclick=()=>{
+    if(st.done.indexOf(n.id)<0){ st.done.push(n.id); addExp(20); save(); toast("完成一节 +20 EXP","✨","xp"); }
+    if(isLast){ toast(L.nm+" 知识库已学完","🎉"); renderShell(); openInstrument(id); }
+    else openInstNode(id, k+1);
+  };
 }
 function nodeCatFromInst(id){
   return {piano:"piano",guitar:"perf",violin:"perf",sheng:"perf",xiao:"perf",
@@ -977,24 +970,117 @@ function renderCareer(){
 }
 
 /* ---------------- Portfolio ---------------- */
+/* ---------------- 作品集：直接创建，保存真正做出来的东西 ---------------- */
+const WORK_TYPES = ["作曲","编曲","录音","练耳成果","钢琴作品","DAW 项目","乐谱","音频","视频","创作笔记","演出","其他"];
+const WORK_DIRS  = ["古典","爵士","流行","影视","游戏","中国传统","电子 / 实验","民谣","摇滚","R&B / 灵魂","其他"];
+function pfWorks(){ if(!S.portfolioWorks) S.portfolioWorks=[]; return S.portfolioWorks; }
 function renderPortfolio(){
-  const items = S.portfolio;
-  const html = items.length? items.map(p=>`
-    <div class="port-item">
-      <div class="pem">${p.type==="compose"?"🎵":p.type==="studio"?"💻":p.type==="piano"?"🎹":p.type==="event"?"🎤":"🎼"}</div>
-      <div class="pbody">
-        <div class="pt">${p.title}</div>
-        <div class="pm">📅 ${p.date} · ⏱ ${p.time} · +${p.exp} EXP</div>
-        <div>${p.note?`<span class="tag">备注</span>${p.note}`:""}</div>
-        ${p.ai?`<div class="pb">🎓 导师点评：${p.ai}</div>`:""}
-      </div>
-    </div>`).join("")
-    : `<div class="empty-hint">还没有作品。去完成你的第一次创作、演出或接单，<br>这里会慢慢积累成一份真正的音乐人履历。</div>`;
+  const items = pfWorks();
+  const cards = items.map(p=>{
+    const n = (p.contents||[]).length;
+    return `<div class="pf-card" data-id="${p.id}">
+      <div class="pf-em">${p.type==="录音"||p.type==="音频"?"🎧":p.type==="钢琴作品"?"🎹":p.type==="DAW 项目"?"💻":p.type==="练耳成果"?"👂":p.type==="视频"?"🎬":"🎵"}</div>
+      <div class="pf-t">${p.title}</div>
+      <div class="pf-m">${p.type} · ${p.dir||"未标注方向"} · ${p.date}</div>
+      <div class="pf-n">${p.intro? p.intro : ""}</div>
+      <div class="pf-c">${n} 项内容</div>
+    </div>`;
+  }).join("");
   $("view").innerHTML = `
     <div class="kicker">MY PORTFOLIO</div>
     <h1 class="section-title"><span class="em">📁</span>我的作品集</h1>
-    <p class="lead">记录人生中完成的一切：第一首作品、第一场演出、第一笔收入……最终形成你的音乐人履历。</p>
-    <div class="panel">${html}</div>`;
+    <p class="lead">这里只放你真正做出来的东西——作曲、编曲、录音、练耳成果、乐谱、音频、视频、创作笔记。</p>
+    <div class="pf-grid">
+      <div class="pf-add" id="pf-add">
+        <div class="pf-plus">+</div>
+        <div class="pf-add-t">创建作品</div>
+      </div>
+      ${cards}
+    </div>
+    ${items.length?"":`<div class="empty-hint">还没有作品。点上面的 + 创建第一个。</div>`}`;
+  $("pf-add").onclick=()=> openWorkForm();
+  $("view").querySelectorAll(".pf-card").forEach(c=> c.onclick=()=> openWork(c.dataset.id));
+}
+function openWorkForm(){
+  const today = new Date().toISOString().slice(0,10);
+  modal(`
+    <h3>➕ 创建新作品</h3>
+    <div class="msub">填写基本信息，之后可以随时往里面添加乐谱、音频、笔记等内容。</div>
+    <div class="panel" style="margin:0">
+      <div class="fld"><label>作品名称</label><input id="wf-title" placeholder="例如：夜色练习曲 No.1"></div>
+      <div class="fld"><label>类型</label><select id="wf-type">${WORK_TYPES.map(t=>`<option>${t}</option>`).join("")}</select></div>
+      <div class="fld"><label>创作方向</label><select id="wf-dir">${WORK_DIRS.map(t=>`<option>${t}</option>`).join("")}</select></div>
+      <div class="fld"><label>日期</label><input id="wf-date" type="date" value="${today}"></div>
+      <div class="fld"><label>简介</label><textarea id="wf-intro" rows="3" placeholder="它是什么？你为什么做它？现在到哪一步了？"></textarea></div>
+    </div>
+    <div class="mrow" style="justify-content:flex-end;margin-top:14px">
+      <button class="btn ghost" onclick="ML.closeM()">取消</button>
+      <button class="btn gold" id="wf-go">创建</button>
+    </div>`);
+  $("wf-go").onclick=()=>{
+    const t=($("wf-title").value||"").trim();
+    if(!t){ toast("先给作品起个名字","✍️"); return; }
+    const w={ id:"w"+Date.now(), title:t, type:$("wf-type").value, dir:$("wf-dir").value,
+      date:$("wf-date").value||today, intro:($("wf-intro").value||"").trim(), contents:[] };
+    pfWorks().unshift(w); save(); closeModal(); toast("作品已创建","📁"); openWork(w.id);
+  };
+}
+function openWork(id){
+  const w = pfWorks().find(x=>x.id===id);
+  if(!w){ renderPortfolio(); return; }
+  const items = (w.contents||[]).map(c=>`
+    <div class="pf-item">
+      <div class="pf-i-t">${c.kind} · ${c.title}</div>
+      <div class="pf-i-c">${c.text||""}</div>
+      <div class="pf-i-d">${c.date}</div>
+    </div>`).join("");
+  $("view").innerHTML = `
+    <div class="kicker">${w.type} · ${w.dir}</div>
+    <h1 class="section-title"><span class="em">📁</span>${w.title}</h1>
+    <p class="lead">${w.intro? w.intro : "（还没有简介）"}</p>
+    <div class="mrow">
+      <button class="btn ghost sm" id="w-back">← 返回作品集</button>
+      <button class="btn ghost sm" id="w-add">+ 添加内容</button>
+      <button class="btn ghost sm" id="w-del">删除作品</button>
+    </div>
+    <div class="panel"><div class="sec-tag">作品内容</div>
+      ${items || `<div class="empty-hint">还没有内容。点「+ 添加内容」记录你的乐谱、音频链接、创作笔记或练耳成果。</div>`}
+    </div>`;
+  $("w-back").onclick=renderPortfolio;
+  $("w-add").onclick=()=>{
+    const today = new Date().toISOString().slice(0,10);
+    modal(`
+      <h3>➕ 添加内容</h3>
+      <div class="msub">记录你真正做出来的东西：一段乐谱、一个音频链接、一次练耳成绩、一条创作笔记。</div>
+      <div class="panel" style="margin:0">
+        <div class="fld"><label>内容类型</label><select id="wc-kind">
+          ${["乐谱","音频","视频","创作笔记","DAW 项目","练耳成果","录音","演出记录","其他"].map(t=>`<option>${t}</option>`).join("")}
+        </select></div>
+        <div class="fld"><label>标题</label><input id="wc-title" placeholder="例如：A 段八小节定稿"></div>
+        <div class="fld"><label>内容 / 链接 / 笔记</label><textarea id="wc-text" rows="4" placeholder="粘贴链接，或写下你的想法与过程"></textarea></div>
+      </div>
+      <div class="mrow" style="justify-content:flex-end;margin-top:14px">
+        <button class="btn ghost" onclick="ML.closeM()">取消</button>
+        <button class="btn gold" id="wc-go">保存</button>
+      </div>`);
+    $("wc-go").onclick=()=>{
+      const t=($("wc-title").value||"").trim();
+      if(!t){ toast("先写个标题","✍️"); return; }
+      w.contents = w.contents||[];
+      w.contents.unshift({kind:$("wc-kind").value,title:t,text:($("wc-text").value||"").trim(),date:today});
+      save(); addExp(10); closeModal(); toast("已保存 +10 EXP","💾","xp"); openWork(id);
+    };
+  };
+  $("w-del").onclick=()=>{
+    modal(`<h3>删除作品</h3><div class="msub">确定删除《${w.title}》？此操作不可撤销。</div>
+      <div class="mrow" style="justify-content:flex-end;margin-top:14px">
+        <button class="btn ghost" onclick="ML.closeM()">取消</button>
+        <button class="btn" id="wd-ok">确认删除</button></div>`);
+    $("wd-ok").onclick=()=>{
+      S.portfolioWorks = pfWorks().filter(x=>x.id!==id);
+      save(); closeModal(); toast("已删除","🗑"); renderPortfolio();
+    };
+  };
 }
 
 /* ---------------- Events ---------------- */
@@ -1214,7 +1300,7 @@ function enterApp(){
   $("screen-intro").classList.remove("active");
   $("app").style.display="grid";
   window.__mlEntered = true; // 标记应用已进入；learn.js 挂载完进度函数后会据此刷新外壳
-  renderShell(); buildNav(); buildTopMenu(); buildMentor($("col-right"));
+  renderShell(); buildNav(); buildTopMenu();
   showView("home");
 }
 function maybeIntro(){
@@ -1234,7 +1320,7 @@ window.ML = {
   save, renderShell, showView, buildNav,
   VIEWS, NAV,
   D, AE, toast, modal, stars, clamp, drawRadar, derivedSkills, addExp,
-  openMentor, titleForLevel, bindMentor
+  titleForLevel
 };
 
 /* ---------------- Init ---------------- */
