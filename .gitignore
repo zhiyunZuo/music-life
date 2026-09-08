@@ -4,6 +4,16 @@
 # 本地测试脚本（Node 冒烟测试），非站点运行所需
 _smoke.js
 
+# 内容构建 / 代码重构的一次性脚本与中间产物（未进站点）
+_nc/
+_nc*.js
+_blocks.txt
+_add.css
+_merge.js
+_rebuild.js
+_fix_layout.js
+_fix_mentor.js
+
 # 依赖 / 日志
 node_modules/
 *.log
