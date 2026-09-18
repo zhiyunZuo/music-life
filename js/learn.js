@@ -1247,6 +1247,82 @@ const NODE_CONTENT = {
 /* ---- 森林遍历工具（跨领域） ---- */
 function forestWalk(fn){ DOMAINS.forEach(d=> (function w(n){ fn(n); (n.children||[]).forEach(w); })(d)); }
 function nodeById(id){ let r=null; forestWalk(n=>{ if(n.id===id) r=n; }); return r; }
+
+/* ---- 教学配图：每个一级领域一张专属插图（assets/teach/*.webp） ---- */
+const TEACH_IMG_CAP = {
+  piano:"钢琴应用：同一套和声落到琴键上，就变成了织体、指法与触键的具体选择。",
+  harmony:"和声：和弦只是节点，真正决定风格的是声部如何从一个和弦走到下一个。",
+  improv:"即兴：不是凭感觉乱弹，而是把听过的语言在瞬间重新组织成自己的话。",
+  impropiano:"即兴钢琴：左手给出和声框架，右手在这套框架上做实时的旋律决策。",
+  accomp:"即兴伴奏：先听清调性与和声走向，再决定用什么织体托住歌手。",
+  compose:"作曲：从一个两到四音的动机出发，靠发展与结构把它变成一首完整的曲子。",
+  arrange:"编曲：把骨架拆成多个层次，每一层负责不同的频段、节奏职能与空间位置。",
+  daw:"DAW 与音乐制作：从工程搭建、编辑量化到混音导出，把想法变成可交付的成品。",
+  orch:"配器：熟悉每件乐器的音域、力度与音色，才能写出真正弹得出来的织体。",
+  ear:"练耳：把听到的声音翻译成音程、和弦、调式与功能——即兴与视奏的共同地基。",
+  analysis:"音乐分析：逐层剥离织体、和声、旋律、节奏与配器，看清作曲家究竟做了什么。",
+  classical:"古典音乐：从巴洛克到当代，每个时代的技术条件给出了不同的审美答案。",
+  jazz:"爵士：摇摆律动、和声重配与实时对话，三者缺一不成爵士。",
+  pop:"流行音乐：hook 的写法、段落的安排与制作手段，决定了它能不能被记住。",
+  film:"影视音乐：配乐的本职是服务画面，在正确的时间点给出正确的信息。",
+  game:"游戏音乐：循环、分层与自适应，音乐要跟着玩家的行为实时变化。",
+  sound:"音色与声音设计：振荡器、滤波器与包络，决定了一件音色从哪里来。",
+  mix:"混音：在平衡、清晰与情绪之间取舍，让每个元素在正确的位置被听见。",
+  master:"母带：交付前的最后一步，统一响度与动态，适配不同的播放平台。",
+  guitar:"吉他：指板是一套独立的地理，和弦、音阶与把位都要重新认识一遍。",
+  violin:"小提琴：持琴、运弓、音准与揉弦，每一项都直接决定发音的质量。",
+  folk:"笙与箫：各有独立的音位、气息与音准逻辑，不是通用乐理换个名字。",
+  history:"音乐史：风格演变的背后，是乐器改良、记谱方式与社会需求的共同推动。",
+  aesthetic:"音乐审美：判断力是可以论证的，不是一句「我喜欢就好」。",
+  expression:"音乐表达：速度、力度、触键与呼吸，把谱面变成有说服力的声音。",
+  style:"风格研究：真正学会一种风格，是学会它的语汇与默认选择。"
+};
+function domainIdOf(nodeId){
+  let found=null;
+  DOMAINS.forEach(d=>{
+    (function w(n){
+      if(found) return;
+      // 节点 id 与真实课程 id 可能不同（如 h-secdom -> secdom），两者都要匹配
+      if(n.id===nodeId || n.lesson===nodeId){ found=d.id; return; }
+      (n.children||[]).forEach(w);
+    })(d);
+  });
+  return found;
+}
+function heroHTML(src, cap, altText, slim){
+  const a=String(altText||cap||"").replace(/["><]/g,"");
+  const c=String(cap||"");
+  return `<figure class="lesson-hero${slim?" slim":""}">
+    <img src="${src}" alt="${a}" loading="lazy" decoding="async">
+    ${c?`<figcaption class="lesson-hero-cap">${c}</figcaption>`:""}
+  </figure>`;
+}
+function teachHeroHTML(nodeId, capOverride, slim){
+  const dom=domainIdOf(nodeId);
+  if(!dom) return "";
+  const cap = capOverride!==undefined ? capOverride : (TEACH_IMG_CAP[dom] || "");
+  return heroHTML("assets/teach/t-"+dom+".webp", cap, "", slim);
+}
+/* ---------- 知识图解：把讲解画成图 ---------- */
+function comicFor(id){
+  if(typeof DIAGRAMS==="undefined") return null;
+  if(DIAGRAMS[id]) return DIAGRAMS[id];
+  const n=nodeById(id);
+  if(n && n.lesson && DIAGRAMS[n.lesson]) return DIAGRAMS[n.lesson];
+  const real=D.LESSONS.find(x=>x.id===id);
+  if(real){
+    const owner=(typeof ALL_NODES!=="undefined"?ALL_NODES:[]).find(x=>x.lesson===id);
+    if(owner && DIAGRAMS[owner.id]) return DIAGRAMS[owner.id];
+  }
+  return null;
+}
+function comicHTML(id){
+  const list=comicFor(id);
+  if(!list || !window.MLDIAG) return "";
+  const html=window.MLDIAG.renderStrip(list);
+  if(!html) return "";
+  return `<div class="cmc-title">🖼 图解讲解</div>${html}`;
+}
 function mapFlatten(){ const out=[]; forestWalk(n=>{ if(n.lesson) out.push(n.lesson); }); return out; }
 function mapAll(){ const out=[]; forestWalk(n=>{ if(n.id) out.push(n); }); return out; }
 function nextLessonId(id){ const ord=mapFlatten(); const i=ord.indexOf(id); return (i>=0 && i<ord.length-1)? ord[i+1]:null; }
@@ -1276,6 +1352,7 @@ function renderGalaxy(body){
   g.innerHTML = DOMAINS.map(d=>{
     const nn=countNodes(d)-1;
     return `<div class="km-domain" data-d="${d.id}" style="cursor:pointer">
+      <div class="kmd-thumb"><img src="assets/teach/t-${d.id}.webp" alt="${d.zh}" loading="lazy" decoding="async"></div>
       <div class="kmd-em">${d.em}</div>
       <div class="kmd-zh">${d.zh}</div>
       <div class="kmd-en">${d.en}</div>
@@ -1333,7 +1410,8 @@ function renderDomainTree(body, domain){
       const ov = l.synthetic? 0 : overall(lid);
       nodesHtml+=`<div class="${nodeClass(node)}" style="left:${node.x}px;top:${node.y}px;width:${NW}px;height:${NH}px;cursor:pointer" data-lid="${lid}">
         <div class="km-top"><span class="km-emoji">${l.emoji}</span>
-          <div class="km-tt"><div class="km-title">${l.title}</div><div class="km-en">${l.en}</div></div></div>
+          <div class="km-tt"><div class="km-title">${l.title}</div><div class="km-en">${l.en}</div></div>
+          ${comicFor(lid)?`<span class="km-diag" title="含图解讲解">🖼</span>`:""}</div>
         ${l.synthetic?"":`<div class="km-bar"><div class="km-fill" style="width:${ov}%"></div></div>`}
       </div>`;
     }
@@ -1627,6 +1705,7 @@ function renderLesson(body, id){
       <h2>${l.emoji} ${l.title}</h2>
       <div id="lesson-mastery">${l.synthetic?"":lessonMasteryHTML(id)}</div>
     </div>
+    ${teachHeroHTML(id, undefined, true)}
     <div class="panel">
       <div class="sec-tag">① 讲解</div>
       <div class="mrow">
@@ -1634,6 +1713,7 @@ function renderLesson(body, id){
         <button class="btn sm ghost" id="cn-pro">专业</button>
       </div>
       <div id="cn-text" class="lesson-body">${l.concept.simple}</div>
+      ${comicHTML(id)}
     </div>
     <div class="panel">
       <div class="sec-tag">② 音乐例</div>
@@ -1912,7 +1992,7 @@ ML.openLesson = function(id){
   $("lt-back").onclick=()=>{ hubTab="map"; renderLearnHub(); };
   renderLesson($("learn-body"), id);
 };
-ML.__test = { resolveLesson, renderKnowledgeMap, renderDomainTree, renderLesson, DOMAINS };
+ML.__test = { resolveLesson, renderKnowledgeMap, renderDomainTree, renderLesson, DOMAINS, domainIdOf, teachHeroHTML, heroHTML, TEACH_IMG_CAP, comicHTML, comicFor };
 
 /* learn.js 在 app.js 之后加载：若应用已进入主界面（老用户直接进入），
    此时进度函数刚挂载完成，刷新一次外壳以便正确计算「当前方向」，且不破坏首屏渲染。 */

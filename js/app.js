@@ -379,6 +379,26 @@ function drawRadar(cv, data){
 
 /* ---------------- World Map ---------------- */
 /* ---------------- 音乐世界：每个区域都是真实可探索的知识区域 ---------------- */
+/* 区域专属插画（assets/teach/w-*.webp）与配图说明 */
+const REGION_IMG_CAP = {
+  classical:"古典之城：把那个时代的音响习惯与乐器条件放在一起看，风格才成立。",
+  harmony:"和声森林：四部和声像藤蔓一样缠绕连接，走出调性迷宫靠的是声部进行。",
+  earcave:"听觉试炼洞窟：在这里，声音会被拆成音程、和弦、调式与功能四个维度。",
+  proddist:"制作人街区：每一扇窗里都有一台正在运转的工程，从编曲到混音。",
+  guitar:"吉他街：六根弦上的和弦、指法与街头现场——指板是一套独立的地理。",
+  orchestra:"交响乐厅：从排练到全奏，听清每一组乐器如何在音域上彼此咬合。",
+  eastern:"东方音乐村：五声调式、气息与竹管的韵味，是另一套完整的音高逻辑。",
+  stage:"表演舞台：聚光灯下没有第二次机会，所有技术都要在实时中兑现。",
+  film:"影视配乐棚：画面与音乐的同步点在这里被逐段对齐。",
+  game:"游戏音乐实验场：循环、分层与自适应音乐的试验台。",
+  jazz:"午夜爵士俱乐部：摇摆律动、和声重配与实时对话的现场。",
+  exp:"实验实验室：先锋与电子把声音本身当作材料，而不是旋律的载体。"
+};
+/* 乐器知识库配图（复用对应领域的插画） */
+const INST_IMG = {
+  piano:"t-piano", guitar:"t-guitar", violin:"t-violin",
+  sheng:"t-folk", xiao:"t-folk", flute:"t-orch", cello:"t-orch", voice:"t-pop"
+};
 const REGION_DETAIL = {
   classical:{nm:"古典之城",topics:[["cl-baroque","巴洛克"],["cl-classic","古典主义"],["cl-rom","浪漫主义"],["cl-imp","印象主义"]],
     works:[["平均律键盘曲集","J.S. Bach","48 首前奏曲与赋格，是复调与调性的百科全书"],["钢琴奏鸣曲 Op.49 No.2","Beethoven","奏鸣曲式的清晰范例"],["夜曲 Op.9 No.2","Chopin","歌唱性旋律与 rubato 的典范"]],
@@ -433,7 +453,7 @@ const REGION_DETAIL = {
 function renderWorld(){
   const regions = D.REGIONS.map(r=>{
     const D2 = REGION_DETAIL[r.id] || {nm:r.nm};
-    return `<div class="region" data-id="${r.id}" style="background:${r.grad}">
+    return `<div class="region" data-id="${r.id}" style="background-image:linear-gradient(rgba(7,11,20,.60),rgba(7,11,20,.88)),url('assets/teach/w-${r.id}.webp');background-size:cover;background-position:center">
       <span class="rg-em">${r.em}</span>
       <div class="rg-nm">${D2.nm||r.nm}</div><div class="rg-ds">${r.ds}</div>
     </div>`;
@@ -459,6 +479,7 @@ function openRegion(id){
     <div class="kicker">${reg.em} ${R.nm}</div>
     <h1 class="section-title"><span class="em">${reg.em}</span>${R.nm}</h1>
     <div class="mrow"><button class="btn ghost sm" id="rg-back">← 返回世界地图</button></div>
+    ${ (typeof heroHTML==="function") ? heroHTML("assets/teach/w-"+id+".webp", REGION_IMG_CAP[id]||R.nm) : "" }
 
     <div class="panel"><div class="sec-tag">① 领域知识</div>
       ${topics?`<div>${topics}</div>`:`<div class="lnote">这一区域以实践为主，直接进入下面的互动与任务。</div>`}
@@ -625,6 +646,7 @@ function openInstrument(id){
     <div class="kicker">${i.em} ${L.nm} LIBRARY</div>
     <h1 class="section-title"><span class="em">${i.em}</span>${L.nm}知识库</h1>
     <p class="lead">${L.intro}</p>
+    ${ (typeof heroHTML==="function" && INST_IMG[id]) ? heroHTML("assets/teach/"+INST_IMG[id]+".webp", L.nm+"："+L.ds) : "" }
     <div class="panel">
       <div class="mrow">
         <button class="btn ghost sm" id="inst-back">← 返回乐器</button>
@@ -646,6 +668,7 @@ function openInstNode(id, k){
   $("view").innerHTML = `
     <div class="kicker">${L.nm} · ${n.lv||"入门"}</div>
     <h1 class="section-title"><span class="em">${n.em}</span>${n.t}</h1>
+    ${ INST_IMG[id] ? `<div class="lesson-hero slim"><img src="assets/teach/${INST_IMG[id]}.webp" alt="${L.nm}" loading="lazy" decoding="async"></div>` : "" }
     <div class="panel"><div class="sec-tag">① 专业讲解</div><div class="lnote">${n.explain}</div></div>
     <div class="panel"><div class="sec-tag">② 实际示范</div><div class="lnote">${n.demo}</div></div>
     <div class="panel"><div class="sec-tag">③ 音乐应用</div><div class="lnote">${n.apply}</div></div>

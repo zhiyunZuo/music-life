@@ -688,3 +688,31 @@ body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opac
   font-size:13.5px;font-family:inherit}
 .fld textarea{resize:vertical;line-height:1.6}
 .fld input:focus,.fld select:focus,.fld textarea:focus{outline:none;border-color:rgba(212,175,55,.6)}
+
+
+/* ============ 教学配图（AI 生成插画） ============ */
+.lesson-hero{position:relative;margin:16px 0 18px;border-radius:16px;overflow:hidden;border:1px solid var(--line);box-shadow:var(--shadow);background:var(--night-1)}
+.lesson-hero img{width:100%;display:block;aspect-ratio:1280/845;object-fit:cover}
+.lesson-hero.slim{margin:14px 0 16px;border-radius:14px}
+.lesson-hero.slim img{aspect-ratio:1280/280}
+.lesson-hero-cap{position:absolute;left:0;right:0;bottom:0;margin:0;padding:34px 18px 14px;background:linear-gradient(to top,rgba(7,11,20,.95) 18%,rgba(7,11,20,.6) 62%,transparent);color:var(--cream-dim);font-size:13px;line-height:1.7;letter-spacing:.2px}
+.kmd-thumb{height:84px;border-radius:12px;overflow:hidden;margin-bottom:10px;background:var(--night-1)}
+.kmd-thumb img{width:100%;height:100%;object-fit:cover;display:block;opacity:.86;transition:.3s}
+.km-domain:hover .kmd-thumb img{opacity:1;transform:scale(1.06)}
+
+.km-diag{flex:0 0 auto;margin-left:auto;align-self:flex-start;font-size:13px;filter:saturate(1.2);opacity:.85}
+/* ================= 知识图解（讲解漫画） ================= */
+.cmc-title{display:flex;align-items:center;gap:8px;margin:22px 0 10px;padding-top:16px;border-top:1px dashed rgba(157,78,221,.28);color:var(--gold-bright);font-size:13px;font-weight:700;letter-spacing:1px}
+.cmc{display:grid;grid-template-columns:1fr;gap:16px}
+.cmc-p{margin:0;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:rgba(11,19,36,.6);box-shadow:0 12px 30px rgba(0,0,0,.38);transition:border-color .25s,transform .25s}
+.cmc-p:hover{border-color:rgba(224,169,109,.45);transform:translateY(-2px)}
+.cmc-h{display:flex;align-items:center;gap:10px;padding:11px 15px;background:linear-gradient(180deg,rgba(157,78,221,.20),rgba(157,78,221,.05));border-bottom:1px solid var(--line)}
+.cmc-h i{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:linear-gradient(145deg,var(--gold),#b8814a);color:#0b1120;font-family:var(--font-disp);font-size:13px;font-weight:700;font-style:normal}
+.cmc-h span{font-size:14px;font-weight:700;color:var(--cream);letter-spacing:.4px;line-height:1.4}
+.cmc-img{padding:10px 12px 4px}
+.cmc-svg{width:100%;height:auto;display:block;border-radius:11px}
+.cmc-p figcaption{padding:6px 16px 14px;font-size:12.5px;line-height:1.8;color:var(--cream-dim)}
+@media(max-width:560px){
+  .cmc-h span{font-size:13px}
+  .cmc-p figcaption{font-size:12px;padding:4px 13px 12px}
+}

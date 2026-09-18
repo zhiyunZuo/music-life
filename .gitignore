@@ -18,3 +18,16 @@ _fix_mentor.js
 node_modules/
 *.log
 .DS_Store
+
+# 教学配图：只提交压缩后的 WebP，PNG 原图保留在本地（约 76MB，不入库）
+assets/teach/*.png
+generated-images/
+
+# 本地辅助脚本 / 预览页
+_listnodes.js
+_smk*.js
+_preview-*.html
+
+# 本地推送辅助脚本
+push.sh
+_preview-gen.js
