@@ -31,3 +31,9 @@ _preview-*.html
 # 本地推送辅助脚本
 push.sh
 _preview-gen.js
+_apipush.py
+_apifinish.py
+_preview-studio.html
+_preview-studio-gen.js
+_patch_app.py
+_tmpq.js

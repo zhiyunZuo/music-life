@@ -814,13 +814,122 @@ ${body}</svg>`;
   }
 
   /* ============================================================
+     19. daw · DAW 界面布局图（窗口 chrome + 轨道区 + 标注）
+     {title, topbar:[{t,c}], tracks:[{n, blocks:[{x,w,t,c}]}], notes:[{x,y,lb,c,tail}], total}
+     ============================================================ */
+  function rDaw(p) {
+    const pad = 42, top = 46, winW = W - pad * 2;
+    const headH = 34, rowH = p.rh || 27, gapY = 6, nameW = 84;
+    const headPad = 8;
+    let g = "";
+    // 窗口外框
+    g += rr(pad, top, winW, 30, 10, "#16203a", "#3a3358", 1.2);
+    // 交通灯
+    ["#ff5d6c", "#f2c879", "#3ddc97"].forEach((c, i) => { g += circ(pad + 16 + i * 15, top + 15, 5, c); });
+    g += T(pad + 62, top + 20, p.title || "DAW 工程窗口", { fs: 12.5, c: C.cream, w: 600 });
+    (p.topbar || []).forEach((b, i) => {
+      g += T(pad + winW - 12 - i * 78, top + 20, b, { fs: 11, c: C.dim, a: "end" });
+    });
+    let y = top + 30 + 6;
+    // 轨道区底板
+    const list = p.tracks || [];
+    const bodyH = list.length * (rowH + gapY) + 16;
+    g += rr(pad, y, winW, bodyH, 12, "#0b1220", "#2c2650", 1.2);
+    // 轨道头与格子
+    const contentX = pad + nameW, contentW = winW - nameW - 12;
+    const total = p.total || 16;
+    const totalUnits = p.beats || total;
+    list.forEach((tr, i) => {
+      const ty = y + 8 + i * (rowH + gapY);
+      g += rr(pad + 6, ty, nameW - 12, rowH, 6, "rgba(157,78,221,.14)", "#3a3358", 1);
+      g += T(pad + 12, ty + rowH / 2 + 4, tr.n, { fs: 11.5, c: C.gold2, w: 700 });
+      if (tr.r) g += T(pad + nameW - 18, ty + rowH / 2 + 4, tr.r, { fs: 10, c: C.dim, a: "end" });
+      g += rr(contentX, ty, contentW, rowH, 6, "rgba(255,255,255,.035)", "#241f3d", 1);
+      for (let k = 1; k < totalUnits; k++) {
+        g += line(contentX + contentW * k / totalUnits, ty, contentX + contentW * k / totalUnits, ty + rowH, "#1d1836", 1);
+      }
+      (tr.blocks || []).forEach(b => {
+        const bx = contentX + contentW * b.x / totalUnits;
+        const bw2 = Math.max(8, contentW * b.w / totalUnits - 2);
+        const c = col(b.c || "violet2");
+        g += rr(bx, ty + 3, bw2, rowH - 6, 5, hexA(c, .38), c, 1.1);
+        const ls = wrapTo(b.t || "", bw2 - 6, 10.5);
+        ls.forEach((l, k) => {
+          g += T(bx + bw2 / 2, ty + rowH / 2 + (k - (ls.length - 1) / 2) * 12 + 1, l, { fs: 10.5, c: C.cream, a: "middle", w: 600 });
+        });
+      });
+    });
+    const bottom = y + bodyH;
+    // 标注气泡（y 为内容区比例 0–1）
+    const noteExtra = 30;
+    (p.notes || []).forEach(nt => {
+      const nx = pad + winW * Math.max(0, Math.min(1, nt.x));
+      const ny = (top + 36) + bodyH * Math.max(0, Math.min(1, nt.y));
+      g += bubble(Math.max(pad - 6, Math.min(nx, pad + winW - 212)), ny, nt.lb,
+        { w: nt.bw || 168, fs: 11, tail: nt.tail || "left", c: col(nt.c || "gold") });
+    });
+    return svg(bottom + 18 + noteExtra, g);
+  }
+
+  /* ============================================================
+     20. roll · 钢琴卷帘（Piano Roll）
+     {title, rows:[{n,black}], notes:[{r,x,w,t,c}], step,len}
+     ============================================================ */
+  function rRoll(p) {
+    const rows = p.rows || ["C5", "B4", "A4", "G4", "F4", "E4", "D4", "C4", "B3", "A3"];
+    const len = p.len || 8, keypadW = 52, pad = 30, top = 66;
+    const gridX = pad + keypadW, gridW = W - pad * 2 - keypadW;
+    const rh = Math.min(22, Math.max(15, (p.h || 210) / rows.length));
+    const cw = gridW / len;
+    let g = "";
+    if (p.title) g += T(pad, top - 24, p.title, { fs: 13, c: C.gold2, w: 700 });
+    // 横向宫格（音高）
+    rows.forEach((r0, i) => {
+      const y = top + i * rh, nm = typeof r0 === "string" ? r0 : r0.n;
+      const black = typeof r0 === "string" ? /[#♯]/.test(nm) : !!r0.black;
+      const pc = (nm.match(/^[A-G]/) || [""])[0];
+      const blackRow = black || ["B", "A", "G", "F", "E", "D"].indexOf(pc) >= 0 && /[#♯]/.test(nm);
+      g += rr(gridX, y, gridW, rh - 1, 0, !/[#♯]/.test(nm) ? "rgba(255,255,255,.045)" : "rgba(255,255,255,.018)");
+      // 左侧迷你键盘
+      g += rr(pad, y, keypadW - 6, rh - 1, 3, /[#♯]/.test(nm) ? "#141d33" : "#ddd6c4", "#241f3d", .8);
+      g += T(pad + keypadW - 12, y + rh / 2 + 3.5, nm, { fs: 10, c: /[#♯]/.test(nm) ? C.dim : "#3a3358", a: "end", w: 600 });
+    });
+    // 纵向拍线（每拍）
+    for (let k = 0; k <= len; k++) {
+      const x = gridX + cw * k, strong = k % 4 === 0;
+      g += line(x, top, x, top + rows.length * rh, strong ? "#4b4266" : "#241f3d", strong ? 1.3 : 1);
+      if (strong && k < len) g += T(x + cw * 2, top - 8, (k / 4 + 1), { fs: 10.5, c: C.dim, a: "middle" });
+    }
+    // 音符块
+    (p.notes || []).forEach(nt => {
+      const r0 = Math.max(0, Math.min(rows.length - 1, nt.r));
+      const y = top + r0 * rh + 2;
+      const x = gridX + cw * nt.x, wgt = Math.max(cw * 0.6, cw * (nt.w || 1) - 3);
+      const c = col(nt.c || "violet2");
+      g += rr(x, y, wgt, rh - 4, 4, hexA(c, .62), c, 1.1);
+      const ls = wrapTo(nt.t || "", wgt - 6, 10);
+      ls.forEach((l, k) => { g += T(x + wgt / 2, y + rh / 2 - 4 + (k - (ls.length - 1) / 2) * 11, l, { fs: 10, c: "#0d1424", a: "middle", w: 700 }); });
+      // 力度条
+      const vel = nt.v == null ? 0.8 : nt.v;
+      if (wgt > 22) g += rr(x + 3, y + rh - 8, (wgt - 6) * vel, 2.6, 1.3, "rgba(13,20,36,.45)");
+    });
+    const bottom = top + rows.length * rh;
+    if (p.note) {
+      const ls = wrapTo(p.note, W - 60, 12);
+      ls.forEach((l, k) => { g += T(pad, bottom + 22 + k * 17, l, { fs: 12, c: C.dim }); });
+      return svg(bottom + 20 + ls.length * 17, g);
+    }
+    return svg(bottom + 18, g);
+  }
+
+  /* ============================================================
      渲染入口 renderPanel(spec) -> HTML 字符串
      ============================================================ */
   const R = {
     keys: rKeys, staff: rStaff, stack: rStack, steps: rSteps, flow: rFlow,
     compare: rCompare, cycle: rCycle, bars: rBars, env: rEnv, spectrum: rSpectrum,
     timeline: rTimeline, prog: rProg, fret: rFret, stage: rStage, axes: rAxes,
-    tracks: rTracks, wave: rWave, note: rNote
+    tracks: rTracks, wave: rWave, note: rNote, daw: rDaw, roll: rRoll
   };
   function renderPanel(spec) {
     const fn = R[spec && spec.type];

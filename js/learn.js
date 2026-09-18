@@ -181,8 +181,6 @@ function renderLearnHub(){
   else if(hubTab==="lab") renderMusicLab(body);
   else if(hubTab==="feel") renderFeeling(body);
   else if(hubTab==="vocab") renderVocab(body);
-  else if(hubTab==="improv") renderImprov(body);
-  else if(hubTab==="compose") renderComposition(body);
   else if(LEARN_RENDERERS[hubTab]) LEARN_RENDERERS[hubTab](body);
 }
 
@@ -1942,35 +1940,6 @@ function renderImprov(body){
   });
 }
 
-/* ============================================================
-   COMPOSITION MOTIF LAB
-   ============================================================ */
-function renderComposition(body){
-  body.innerHTML=`
-    <div class="panel"><h2>✍️ COMPOSITION LAB · 从动机开始</h2>
-    <div class="sub">不要一开始就“写一首完整的歌”。先创造 2～4 个音的动机，再用变奏/移位/倒影/扩展发展它。</div>
-    <div class="piano-wrap" id="comp-piano"></div>
-    <div class="lab-note">点 2～4 个音作为你的动机。</div>
-    <div class="mrow">
-      <button class="btn sm" id="comp-play">▶ 动机</button>
-      <button class="btn sm ghost" id="comp-var">变奏(节奏)</button>
-      <button class="btn sm ghost" id="comp-trans">移位(+3)</button>
-      <button class="btn sm ghost" id="comp-inv">倒影</button>
-      <button class="btn sm ghost" id="comp-ext">扩展</button>
-      <button class="btn sm gold" id="comp-save">💾 存为作品</button>
-    </div>
-    <div class="feedback" id="comp-fb"></div>
-    </div>`;
-  let motif=[];
-  buildPiano($("comp-piano"), (m,k)=>{ if(motif.length<6 && !motif.includes(m)) motif.push(m); });
-  function playArr(arr){ if(!arr.length){ML.toast("先点几个音","✍️");return;} AE.playMidi(arr.map(m=>({m,d:0.35,gap:0.38}))); }
-  $("comp-play").onclick=()=> playArr(motif);
-  $("comp-var").onclick=()=>{ if(!motif.length)return; const r=motif.map(m=>({m,d:0.2+Math.random()*0.3,gap:0.25+Math.random()*0.3})); AE.playMidi(r); $("comp-fb").className="feedback show"; $("comp-fb").innerHTML="🎼 变奏：改变每个音的时值，动机的‘性格’立刻不同。"; };
-  $("comp-trans").onclick=()=>{ if(!motif.length)return; const t=motif.map(m=>m+3); playArr(t); $("comp-fb").className="feedback show"; $("comp-fb").innerHTML="🎼 移位：整体移高 3 半音，色彩变化但结构保留。"; };
-  $("comp-inv").onclick=()=>{ if(!motif.length)return; const base=motif[0]; const inv=motif.map(m=>base-(m-base)); playArr(inv); $("comp-fb").className="feedback show"; $("comp-fb").innerHTML="🎼 倒影：以第一个音为轴上下翻转，得到‘镜像’动机。"; };
-  $("comp-ext").onclick=()=>{ if(!motif.length)return; const ex=[]; motif.forEach(m=>{ex.push(m);ex.push(m+2);}); playArr(ex); $("comp-fb").className="feedback show"; $("comp-fb").innerHTML="🎼 扩展：在每个音后插入邻音，动机被拉长。"; };
-  $("comp-save").onclick=()=>{ if(!motif.length){ML.toast("先创作动机","✍️");return;} const S=ML.getState(); S.works++; S.portfolio.unshift({type:"compose",title:"✍️ 动机作品",date:todayStr(),skill:"compose",time:"—",exp:60,ai:"好动机！试试用移位与倒影发展成一个乐句。",note:"在作曲动机实验室创作："+motif.map(midiName).join(" ")}); S.skills.compose=clamp(S.skills.compose+1,0,10); ML.save(); ML.renderShell(); ML.toast("动机已存入作品集 +60 EXP","🎵","xp"); };
-}
 function todayStr(){ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
 
 /* ============================================================

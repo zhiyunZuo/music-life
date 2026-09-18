@@ -16,7 +16,7 @@ function defaultState(){
     level:1, exp:0, expNext:500, sp:3,
     rep:0, income:0, works:0,worldDone:0, performances:0,
     skills:{piano:3, theory:3, ear:3, prod:1, perf:2, compose:2},
-    skillNodes:{}, quests:[], questDate:"", portfolio:[],portfolioWorks:[],
+    skillNodes:{}, quests:[], questDate:"", plan:null, portfolio:[],portfolioWorks:[],
     studioStep:0, instruments:inst, mentorLog:[],
     eventsDone:0, lastEvent:"", badges:[]
   };
@@ -165,14 +165,14 @@ function titleForLevel(){
 /* ---------------- Router ---------------- */
 const VIEWS = {
   home:renderHome, world:renderWorld, practice:renderPractice,
-  instruments:renderInstruments, studio:renderStudio, compose:renderCompose,
-  ear:renderEar, career:renderCareer, portfolio:renderPortfolio
+  instruments:renderInstruments, studio:renderStudio,
+  ear:renderEar, portfolio:renderPortfolio
 };
 const NAV = [
   {id:"home",em:"🏠",nm:"首页"},{id:"world",em:"🗺",nm:"世界"},
   {id:"practice",em:"🎵",nm:"练习"},{id:"instruments",em:"🎹",nm:"乐器"},
-  {id:"studio",em:"💻",nm:"工作室"},{id:"compose",em:"🎼",nm:"作曲"},
-  {id:"ear",em:"👂",nm:"听力"},{id:"career",em:"🎓",nm:"职业"},
+  {id:"studio",em:"💻",nm:"工作室"},
+  {id:"ear",em:"👂",nm:"听力"},
   {id:"portfolio",em:"📁",nm:"作品集"}
 ];
 let currentView = "home";
@@ -184,7 +184,7 @@ function buildNav(){
   });
 }
 function buildTopMenu(){
-  const items=[{t:"学习地图",v:"home"},{t:"练习",v:"practice"},{t:"作品",v:"portfolio"},{t:"舞台",v:"career"}];
+  const items=[{t:"今日计划",v:"home"},{t:"音乐世界",v:"world"},{t:"练习",v:"practice"},{t:"作品集",v:"portfolio"}];
   const m=$("topmenu");
   if(!m) return;
   m.innerHTML = items.map(it=>`<a data-v="${it.v}">${it.t}</a>`).join("");
@@ -200,28 +200,29 @@ function showView(v){
 }
 
 /* ---------------- Home ---------------- */
+/* 每日清单不再自动随机生成：
+   有今日计划 → 沿用；有历史偏好但今天是新的一天 → 沿用偏好自动重排；
+   两者都没有 → 首页显示「先回答 3 个问题」，由用户触发。 */
 function ensureDailyQuests(){
-  if(S.questDate !== todayStr()){
-    const pool = D.QUEST_TEMPLATES.slice();
-    // shuffle
-    for(let i=pool.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]];}
-    S.quests = pool.slice(0,5).map((q,i)=>({id:q.em+q.t, em:q.em, t:q.t, d:q.d, exp:q.exp, act:q.act, done:false, idx:i}));
-    S.questDate = todayStr();
+  const Q = window.MLQUEST;
+  if(!Q) return;
+  const t = todayStr();
+  if(S.plan && S.plan.goals && S.questDate !== t){
+    // 新的一天：沿用上次填的乐器/目标/时长，按今天重排
+    S.plan.date = t;
+    S.quests = Q.buildPlan(S.plan);
+    S.questDate = t;
     save();
   }
 }
 function renderHome(){
   ensureDailyQuests();
+  const Q = window.MLQUEST;
   const ds = derivedSkills();
   // radar values
   const radar = ds.map(d=>({label:d.nm, val:d.v}));
 
-  const quests = S.quests.map(q=>`
-    <div class="quest-item ${q.done?'quest-done':''}" data-qid="${q.idx}">
-      <div class="qem">${q.em}</div>
-      <div class="qbody"><div class="qt">${q.t}</div><div class="qd">${q.d}</div></div>
-      <div class="qexp">+${q.exp}</div>
-    </div>`).join("");
+  const quests = Q ? Q.questSectionHTML() : `<div class="sub">清单模块未加载。</div>`;
 
   const schedule = [
     {tm:"08:30",tx:"🎹 Piano Practice"},{tm:"12:00",tx:"👂 Ear Training"},
@@ -240,16 +241,14 @@ function renderHome(){
   $("view").innerHTML = `
     <div class="kicker">MY MUSIC LIFE</div>
     <h1 class="section-title"><span class="em">🎼</span>我的音乐人生</h1>
-    <p class="lead">今天不是来“学习”的——你上线是为了继续你的音乐人生。钢琴任务还没做？作曲技能快升级了？去把今天的 Quest 清了吧。</p>
+    <p class="lead">今天的任务不是凭空给的——先告诉我你练什么乐器、想学什么，我按你的偏好排出一份能真正做完的清单。</p>
 
     <div class="dash-grid">
       <div>
         <div class="panel">
           <h2>📅 TODAY'S QUEST</h2>
-          <div class="sub">完成每日任务获得经验值，推进你的音乐人生。</div>
           ${quests}
-          <button class="btn ghost sm" id="btn-plan">⏱ 按时间生成训练计划</button>
-          <button class="btn ghost sm" id="btn-event" style="margin-left:6px">🎲 探索今日随机事件</button>
+          <button class="btn ghost sm" id="btn-event" style="margin-top:10px">🎲 探索今日随机事件</button>
         </div>
         <div class="panel">
           <h2>🗺 今日音乐世界</h2>
@@ -271,22 +270,8 @@ function renderHome(){
 
   drawRadar($("radar"), radar);
 
-  // quest handlers
-  $("view").querySelectorAll(".quest-item").forEach(it=>{
-    it.onclick = ()=>{
-      const idx = +it.dataset.qid; const q = S.quests[idx];
-      if(q.done) return;
-      q.done = true;
-      // side effects
-      if(q.act==="compose"){ S.works++; addPortfolio("compose","🎵 每日小作品", "日常创作练习", 40); }
-      if(q.act==="studio"){ S.works++; }
-      addExp(q.exp);
-      S.works = q.act==="compose"? S.works : S.works;
-      renderHome();
-      toast("任务完成！+"+q.exp+" EXP", q.em, "xp");
-    };
-  });
-  $("btn-plan").onclick = openPlanMaker;
+  // quest handlers（清单由 MLQUEST 模块负责渲染与绑定）
+  if(Q) Q.bindQuestSection();
   $("btn-event").onclick = ()=> triggerEvent();
   save();
 }
@@ -554,7 +539,7 @@ function renderPractice(){
     {em:"🎼",nm:"Harmony Boss",ds:"给一段旋律配四部和声"},
     {em:"🎹",nm:"Piano Boss",ds:"随机和弦，现场即兴"},
     {em:"💻",nm:"Producer Boss",ds:"钢琴+人声，30分钟编曲"},
-    {em:"🎵",nm:"Composer Boss",ds:"指定情绪/调性/乐器完成作品"}
+    {em:"🎧",nm:"Ear Boss",ds:"连续 10 题音程与和弦听辨"}
   ].map(b=>`<div class="quest-item" data-boss="${b.nm}"><div class="qem">${b.em}</div>
     <div class="qbody"><div class="qt">${b.nm}</div><div class="qd">${b.ds}</div></div>
     <div class="qexp">BOSS</div></div>`).join("");
@@ -698,105 +683,95 @@ function nodeCatFromInst(id){
     flute:"perf",cello:"perf",voice:"perf"}[id]||"perf";
 }
 
-/* ---------------- Studio (music production RPG) ---------------- */
-const STUDIO_STEPS = [
-  {t:"认识 DAW 是什么",d:"Digital Audio Workstation：你未来的音乐工作室核心。"},
-  {t:"选择工作站",d:"Logic / Ableton / Cubase / FL Studio……先了解差异。"},
-  {t:"安装需要的软件",d:"DAW + 必要插件（合成器、效果器）。"},
-  {t:"设置音频设备",d:"声卡、缓冲大小、延迟——让声音不卡顿。"},
-  {t:"连接 MIDI 键盘",d:"把控制器接上，让手指直接写音乐。"},
-  {t:"建立第一条 MIDI Track",d:"新建轨道，准备录入旋律。"},
-  {t:"加载第一个乐器",d:"选择一架钢琴或合成音色。"},
-  {t:"录入四小节旋律",d:"在 Piano Roll 里写下你的动机。"},
-  {t:"加入鼓",d:"Kick / Snare / Hi-hat 建立律动。"},
-  {t:"加入 Bass",d:"给和声一个稳定的根音地基。"},
-  {t:"加入和弦",d:"铺一层和声织体，音乐立起来了。"},
-  {t:"🎉 你的第一首作品诞生了",d:"导出、命名、收藏进作品集。"}
-];
+/* ---------------- Studio（12 步详细指引 + 讲解图） ---------------- */
+let studioOpen = -1;
+/* 把 **加粗** 转成 <b>，让指引文案能强调关键动作 */
+function mdb(s){
+  return String(s==null?"":s).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
+}
 function renderStudio(){
-  const step = S.studioStep;
-  const chain = STUDIO_STEPS.map((s,i)=>{
-    const cls = i<step?"done":(i===step?"cur":"locked");
-    const dot = i<step?"✓":(i===step?"▶":(i+1));
-    return `<div class="chain-step ${cls}">
-      <div class="chain-dot">${dot}</div>
-      <div class="chain-body"><div class="ct">${s.t}</div><div class="cd">${s.d}</div>
-      ${i===step?`<button class="btn sm gold" id="step-do">完成这一步</button>`:""}
-      </div></div>`;
+  const G = window.STUDIO_GUIDE;
+  if(!G){ $("view").innerHTML = `<div class="panel">工作室指引没有加载成功，请刷新页面。</div>`; return; }
+  const total = G.steps.length;
+  if(studioOpen < 0 || studioOpen > total-1) studioOpen = Math.min(S.studioStep, total-1);
+  const i = studioOpen, st = G.steps[i], done = Math.min(S.studioStep, total);
+  const pct = Math.round(done/total*100);
+
+  const chips = G.steps.map((x,k)=>{
+    const cls = k < S.studioStep ? "ok" : (k===studioOpen ? "cur" : "");
+    return `<button class="stu-chip ${cls}" data-k="${k}" title="${x.t}">${k<S.studioStep?"✔":(k+1)}</button>`;
   }).join("");
-  const done = step>=STUDIO_STEPS.length;
+
+  const diagHTML = (window.MLDIAG && st.panels) ? MLDIAG.renderStrip(st.panels) : "";
+  const isCurrent = i === S.studioStep, isDone = i < S.studioStep, isLast = i === total-1;
+  const finished = S.studioStep >= total;
+
+  const mig = (window.heroHTML && G.hero) ? heroHTML(G.hero, "12 步，每一步都说清楚：为什么做、怎么做、坑在哪、做完是什么样。") : "";
+
   $("view").innerHTML = `
     <div class="kicker">MY MUSIC STUDIO</div>
     <h1 class="section-title"><span class="em">💻</span>我的音乐工作室</h1>
-    <p class="lead">像 RPG 新手任务一样，从一台空白电脑开始，真正“做出来”你的第一首电脑音乐。</p>
-    <div class="panel">
-      <h2>📋 任务 001：建立你的音乐工作室</h2>
-      <div class="sub">进度 ${Math.min(step,STUDIO_STEPS.length)} / ${STUDIO_STEPS.length}</div>
-      <div class="quest-chain">${chain}</div>
-      ${done?`<div class="feedback show">🏆 工作室已建成！你可以随时回到这里回顾，或前往 COMPOSE 创作完整作品。</div>`:""}
-    </div>`;
-  const btn = $("step-do");
-  if(btn) btn.onclick = ()=>{
-    S.studioStep++;
-    const last = S.studioStep>=STUDIO_STEPS.length;
-    addExp(last?200:30);
-    if(last){ S.works++; addPortfolio("studio","💻 第一首电脑音乐","在工作室任务中完成的第一段编曲",200); }
-    save(); renderShell(); renderStudio();
-    toast(last?"工作室建成！+200 EXP":"步骤完成 +30 EXP","💻","xp");
-  };
-}
+    <p class="lead">${G.heroCap}</p>
+    ${mig}
 
-/* ---------------- Compose ---------------- */
-function renderCompose(){
-  const N = 8;
-  let grid = Array(N).fill(0);
-  $("view").innerHTML = `
-    <div class="kicker">COMPOSER'S ROOM</div>
-    <h1 class="section-title"><span class="em">🎼</span>作曲室</h1>
-    <p class="lead">写下你的旋律。导师不会替你写完——它只在你需要时给方向。点击格子写音符，试听，再保存进作品集。</p>
     <div class="panel">
-      <h2>✍️ 8 小节旋律草图</h2>
-      <div class="compose-grid" id="cgrid">
-        ${Array(N*3).fill(0).map((_,k)=>{
-          const col=Math.floor(k/3), row=k%3;
-          return `<div class="ckey" data-col="${col}" data-row="${row}">${["·","●","◆"][row]}</div>`;
-        }).join("")}
+      <h2>🧭 12 步路线图</h2>
+      <div class="sub">已完成 ${done} / ${total} 步 · ${pct}%。点任意一步随时回看指引。</div>
+      <div class="stu-bar"><i style="width:${pct}%"></i></div>
+      <div class="stu-nav">${chips}</div>
+      ${finished?`<div class="feedback show">🏆 十二步全部走完。下一步：把做出来的东西登记进「作品集」，或者回来挑一步做深。</div>`:""}
+    </div>
+
+    <div class="panel stu-step">
+      <div class="stu-head">
+        <div class="stu-no">STEP ${i+1} / ${total}</div>
+        <h2>${st.t}</h2>
+        <div class="stu-sub">${st.d}</div>
       </div>
+      ${st.img?`<div class="stu-thumb"><img src="${st.img}" alt="" loading="lazy" decoding="async"><span>${st.imgCap||""}</span></div>`:""}
+
+      <div class="stu-block why">
+        <div class="stu-lb">🌱 为什么先做这一步</div>
+        <div class="stu-tx">${mdb(st.why)}</div>
+      </div>
+
+      <div class="stu-block">
+        <div class="stu-lb">🔧 具体怎么做</div>
+        <ol class="stu-do">${st.do.map(x=>`<li>${mdb(x)}</li>`).join("")}</ol>
+      </div>
+
+      ${diagHTML}
+
+      <div class="stu-block pit">
+        <div class="stu-lb">⚠️ 这一步最常见的坑</div>
+        <ul class="stu-do">${st.pit.map(x=>`<li>${mdb(x)}</li>`).join("")}</ul>
+      </div>
+
+      <div class="stu-block chk">
+        <div class="stu-lb">✅ 完成检查</div>
+        <div class="stu-tx">${mdb(st.check)}</div>
+      </div>
+
       <div class="mrow">
-        <button class="btn" id="c-play">▶ 试听</button>
-        <button class="btn gold" id="c-save">💾 保存为作品</button>
-        <button class="btn ghost" id="c-clear">清空</button>
+        ${i>0?`<button class="btn ghost sm" id="stu-prev">← 上一步</button>`:""}
+        ${isCurrent?`<button class="btn gold" id="stu-do">${isLast?"🏆 全部完成 +200 EXP":"完成这一步 +30 EXP"}</button>`
+          :(isDone?`<span class="stu-fin">✔ 这一步已完成</span>`:`<span class="lab-note">按顺序来：先把前面的步骤做完</span>`)}
+        ${i<total-1?`<button class="btn ghost sm" id="stu-next">下一步 →</button>`:""}
       </div>
-      <div class="feedback" id="c-fb"></div>
     </div>`;
-  const rootMidi = 60;
-  function refresh(){
-    $("cgrid").querySelectorAll(".ckey").forEach(k=>{
-      const col=+k.dataset.col, row=+k.dataset.row;
-      k.classList.toggle("on", grid[col]===row+1);
-    });
-  }
-  $("cgrid").querySelectorAll(".ckey").forEach(k=>{
-    k.onclick=()=>{
-      const col=+k.dataset.col, row=+k.dataset.row;
-      grid[col] = grid[col]===row+1 ? 0 : row+1;
-      refresh();
-    };
-  });
-  $("c-play").onclick=()=>{
-    const seq=[]; grid.forEach((g,i)=>{ if(g) seq.push({m:rootMidi+(g-1)*3, d:0.35, gap:0.4}); });
-    if(seq.length===0){ toast("先写几个音符吧","✍️"); return; }
-    AE.playMidi(seq);
-    const fb=$("c-fb"); fb.className="feedback show";
-    fb.innerHTML = `🎓 导师：你写了 ${seq.length} 个音。注意乐句长短与呼吸——如果全是一个长度会偏平。试试让某一小节留白。`;
-  };
-  $("c-clear").onclick=()=>{ grid=Array(N).fill(0); refresh(); };
-  $("c-save").onclick=()=>{
-    const cnt = grid.filter(g=>g).length;
-    if(cnt===0){ toast("空旋律无法保存","⚠️"); return; }
-    S.works++; addPortfolio("compose","🎵 我的原创片段","在作曲室写下的旋律",80);
-    addExp(80); save(); renderShell();
-    toast("作品已存入作品集 +80 EXP","🎵","xp");
+
+  $("view").querySelectorAll(".stu-chip").forEach(b=> b.onclick=()=>{ studioOpen = +b.dataset.k; renderStudio(); });
+  const prev=$("stu-prev"); if(prev) prev.onclick=()=>{ studioOpen=Math.max(0,i-1); renderStudio(); $("view").scrollTop=0; };
+  const next=$("stu-next"); if(next) next.onclick=()=>{ studioOpen=Math.min(total-1,i+1); renderStudio(); $("view").scrollTop=0; };
+  const btn=$("stu-do");
+  if(btn) btn.onclick=()=>{
+    S.studioStep++;
+    const lastNow = S.studioStep >= total;
+    addExp(lastNow?200:30);
+    if(lastNow){ S.works++; addPortfolio("studio","💻 我的第一首电脑音乐","跟着 12 步工作室指引做出的第一段电脑音乐",200); }
+    studioOpen = Math.min(S.studioStep, total-1);
+    save(); renderShell(); renderStudio();
+    toast(lastNow?"十二步全部完成！+200 EXP":"完成第 "+(i+1)+" 步 +30 EXP","💻","xp");
   };
 }
 
@@ -934,62 +909,6 @@ function renderHarmony(){
     fb.className="feedback show";
     fb.innerHTML=`🎓 为什么：在功能和声里，<b>低音（Bass）</b>决定“方向”。两个声部若出现超过三度的跳进、或同向进入不协和音，耳朵会觉得“别扭”。让低音级进（比如 V 的根音到 I 的根音只差两度）最自然。试试把结尾改成 V → I。`;
   };
-}
-
-/* ---------------- Career & Income ---------------- */
-function currentCareer(){
-  // pick the highest-progress path loosely; default indie
-  return S.level>=6?"indie":(S.skills.prod>=4?"producer":(S.skills.compose>=4?"composer":"pianist"));
-}
-function renderCareer(){
-  const c = D.CAREERS.find(x=>x.id===currentCareer()) || D.CAREERS[0];
-  const reached = clamp(Math.floor(S.level/2),0,c.nodes.length-1);
-  const tree = c.nodes.map((n,i)=>{
-    const cls = i<reached?"reached":(i===reached?"current":"");
-    return `<div class="career-node ${cls}"><div class="cn-nm">${n.nm}</div><div class="cn-ds">${n.ds}</div></div>`+
-      (i<c.nodes.length-1?`<div class="career-link ${i<reached?'reached':''}"></div>`:"");
-  }).join("");
-
-  // income simulation
-  const base = 800 + S.level*420 + S.rep*60 + S.skills.prod*120 + S.skills.compose*100;
-  const wave = Math.round(base * (0.6 + Math.random()*0.8)); // fluctuation
-  const downSeason = Math.random()<0.35;
-  const failChance = Math.max(2, 30 - S.level*2 - S.rep);
-  const cmpRows = D.CAREER_ROWS.map(r=>{
-    const st = D.CAREER_STATS[r.name];
-    const star = v=>Array(5).fill(0).map((_,i)=>`<span class="${i<v?'':'off'}">★</span>`).join("");
-    return `<tr><td>${r.name}</td><td class="star-mini">${star(st.income)}</td><td class="star-mini">${star(st.stable)}</td>
-      <td class="star-mini">${star(st.free)}</td><td class="star-mini">${star(st.create)}</td><td class="star-mini">${star(st.perf)}</td></tr>`;
-  }).join("");
-
-  $("view").innerHTML = `
-    <div class="kicker">CAREER TREE</div>
-    <h1 class="section-title"><span class="em">🎓</span>职业之路</h1>
-    <p class="lead">不是单调升级，而是发展成不同类型的音乐职业。每条路线属性不同——没有唯一“最成功”。</p>
-    <div class="panel">
-      <h2>🧭 当前路线：${c.name} ${c.em}</h2>
-      <div class="career-tree" style="margin-top:12px">${tree}</div>
-      <p class="msub" style="margin-top:12px">其它路线也可在等级提升后自然交叉（综合音乐人）。</p>
-    </div>
-    <div class="panel">
-      <h2>💰 收入模拟</h2>
-      <div class="sub">游戏模拟数据，不代表现实职业收入保证。含波动、淡季、项目失败风险。</div>
-      <div class="income-grid">
-        <div class="income-card"><div class="ic-l">本月预估收入</div><div class="ic-v">¥${wave}</div>
-          <div class="income-bar"><i style="width:${clamp(wave/ (base*1.6)*100,5,100)}%"></i></div></div>
-        <div class="income-card"><div class="ic-l">声望</div><div class="ic-v">${S.rep}</div></div>
-        <div class="income-card"><div class="ic-l">作品</div><div class="ic-v">${S.works}</div></div>
-        <div class="income-card"><div class="ic-l">演出</div><div class="ic-v">${S.performances}</div></div>
-        <div class="income-card"><div class="ic-l">${downSeason?'🌧 淡季':'☀️ 旺季'}</div><div class="ic-v">${downSeason?'-30%':'正常'}</div></div>
-        <div class="income-card"><div class="ic-l">项目失败率</div><div class="ic-v">${failChance}%</div></div>
-      </div>
-      <p class="msub" style="margin-top:12px">真实音乐收入高度不稳定：有淡季、客户取消、设备/软件支出与练习时间成本。这里只是“人生模拟”的乐趣。</p>
-    </div>
-    <div class="panel">
-      <h2>📊 职业属性对比（模拟值）</h2>
-      <table class="career-cmp"><thead><tr><th>职业</th><th>收入</th><th>稳定</th><th>自由</th><th>创作</th><th>演出</th></tr></thead>
-      <tbody>${cmpRows}</tbody></table>
-    </div>`;
 }
 
 /* ---------------- Portfolio ---------------- */
@@ -1152,146 +1071,6 @@ function skillName(k){
     guitar:"吉他",violin:"小提琴",sheng:"笙",xiao:"箫"}[k]||k;
 }
 
-/* ---------------- Assessment (intro overlay) ---------------- */
-function startAssessment(){
-  modal(`<h3>🎧 音乐能力检测</h3>
-    <div class="msub">系统通过互动测试判断你的真实水平，而不是让你自己填。约 3 分钟，请打开声音。</div>
-    <div class="panel" style="margin:0">
-      <div class="today-line"><span class="tm">①</span><span class="tx">👂 听觉：音程、和弦、调式</span></div>
-      <div class="today-line"><span class="tm">②</span><span class="tx">🥁 节奏：听打节拍</span></div>
-      <div class="today-line"><span class="tm">③</span><span class="tx">🎼 理论与创作自测</span></div>
-    </div>
-    <div class="mrow" style="justify-content:flex-end;margin-top:14px">
-      <button class="btn ghost" onclick="ML.closeM()">稍后</button>
-      <button class="btn gold" id="as-go">▶ 开始检测</button>
-    </div>`);
-  $("as-go").onclick = ()=> runAssessment();
-}
-function runAssessment(){
-  let score = {interval:0,chord:0,mode:0,rhythm:0,theory:0};
-  let total = {interval:3,chord:3,mode:3,rhythm:1,theory:3};
-  let step = 0;
-  const rootMidi = 60;
-  function showStep(){
-    if(step===0){ intervalQ(); }
-    else if(step===1){ chordQ(); }
-    else if(step===2){ modeQ(); }
-    else if(step===3){ rhythmQ(); }
-    else if(step===4){ theoryQ(); }
-    else { finish(); }
-  }
-  function header(t,d){ return `<h3>${t}</h3><div class="msub">${d}</div>
-    <div class="game-stage"><div class="big-play" id="a-play">🔊</div>
-    <div id="a-q" style="margin:8px 0;color:#cbbfa6"></div>
-    <div class="opt-grid" id="a-opts"></div></div>
-    <div class="mrow" style="justify-content:flex-end"><button class="btn gold" id="a-next" style="display:none">下一步 →</button></div>`; }
-  function mkOpt(label, correct){
-    window.__lastCorrect = false;
-    const b=document.createElement("button"); b.className="opt-btn"; b.textContent=label;
-    b.onclick=()=>{ if(b.disabled) return;
-      $("a-opts").querySelectorAll(".opt-btn").forEach(x=>x.disabled=true);
-      window.__lastCorrect = correct;
-      if(correct) b.classList.add("correct"); else { b.classList.add("wrong");
-        $("a-opts").querySelectorAll(".opt-btn").forEach(x=>{ if(x.dataset.c==="1") x.classList.add("correct"); }); }
-      $("a-next").style.display="inline-block";
-    };
-    if(correct) b.dataset.c="1";
-    $("a-opts").appendChild(b);
-  }
-  // ① 音程 x3
-  let sIdx=0;
-  function intervalQ(){
-    modal(header("① 听觉 · 音程","听两个音（低→高），判断音程。"));
-    const ivs=D.ASSESS.intervals; const iv=ivs[Math.floor(Math.random()*ivs.length)];
-    $("a-q").textContent=`第 ${sIdx+1}/3 题：判断音程`;
-    $("a-play").onclick=()=> AE.interval(iv.semi, rootMidi, 0.45);
-    const ch=[iv]; while(ch.length<4){const c=ivs[Math.floor(Math.random()*ivs.length)]; if(!ch.includes(c))ch.push(c);}
-    shuffle(ch).forEach(c=> mkOpt(c.name, c.name===iv.name));
-    $("a-next").onclick=()=>{ if(window.__lastCorrect) score.interval++; sIdx++; if(sIdx<3) intervalQ(); else { step=1; showStep(); } };
-  }
-  // ② 和弦 x3
-  let cIdx=0;
-  function chordQ(){
-    modal(header("② 听觉 · 和弦","听和弦，判断性质。"));
-    const chs=D.ASSESS.chords; const ch=chs[Math.floor(Math.random()*chs.length)];
-    $("a-q").textContent=`第 ${cIdx+1}/3 题：判断和弦性质`;
-    $("a-play").onclick=()=> AE.chord(ch.iv, rootMidi, 1.2);
-    const ch2=[ch]; while(ch2.length<4){const c=chs[Math.floor(Math.random()*chs.length)]; if(!ch2.includes(c))ch2.push(c);}
-    shuffle(ch2).forEach(c=> mkOpt(c.name, c.name===ch.name));
-    $("a-next").onclick=()=>{ if(window.__lastCorrect) score.chord++; cIdx++; if(cIdx<3) chordQ(); else { step=2; showStep(); } };
-  }
-  // ③ 调式 x3（参考音乐学院视唱练耳题型）
-  let mIdx=0;
-  function modeQ(){
-    modal(header("③ 听觉 · 调式判断","听一段音阶，判断它属于哪种调式。"));
-    const q = EAR.makeQuestion("mode");
-    $("a-q").textContent=`第 ${mIdx+1}/3 题：判断调式`;
-    $("a-play").onclick=()=> q.play();
-    q.options.forEach((label,i)=> mkOpt(label, i===q.answer));
-    $("a-next").onclick=()=>{ if(window.__lastCorrect) score.mode++; mIdx++; if(mIdx<3) modeQ(); else { step=3; showStep(); } };
-  }
-  // ④ rhythm
-  function rhythmQ(){
-    modal(header("④ 节奏 · 听打","听一段 4 拍节奏，选择你听到的型态。"));
-    const pats=[[1,0,1,1],[1,1,0,1],[1,0,1,0],[1,1,1,1]];
-    const target=pats[Math.floor(Math.random()*pats.length)];
-    $("a-q").textContent="听 4 拍，选择对应的节奏型（●=有音 ○=无）";
-    $("a-play").onclick=()=> AE.rhythm(target, 90);
-    const opts = pats.map(p=>{
-      const label = p.map(x=>x?"●":"○").join(" ");
-      return {label, correct: p.join()===target.join()};
-    });
-    opts.forEach(o=> mkOpt(o.label, o.correct));
-    $("a-next").onclick=()=>{ if(window.__lastCorrect) score.rhythm++; step=4; showStep(); };
-  }
-  // ⑤ theory
-  let tIdx=0;
-  const tqs=[
-    {q:"大三和弦由哪些音程构成？",o:["大三+小三","小三+大三","纯五"],a:0},
-    {q:"C 大调的属七和弦根音是？",o:["C","G","F"],a:1},
-    {q:"I–V–I 进行中，V 到 I 给人什么感觉？",o:["悬而未决","解决/回家","无变化"],a:1}
-  ];
-  function theoryQ(){
-    modal(header("⑤ 乐理 / 创作自测", tqs[tIdx].q));
-    $("a-q").textContent=`第 ${tIdx+1}/${tqs.length} 题`;
-    tqs[tIdx].o.forEach((o,i)=> mkOpt(o, i===tqs[tIdx].a));
-    $("a-next").onclick=()=>{ if(window.__lastCorrect) score.theory++; tIdx++; if(tIdx<tqs.length) theoryQ(); else { step=5; showStep(); } };
-  }
-
-  function finish(){
-    const earAvg = (score.interval/3 + score.chord/3 + score.mode/3 + score.rhythm/1)/4;
-    const ear = clamp(Math.round(earAvg*10),0,10);
-    const theory = clamp(Math.round(score.theory/3*10),2,10);
-    // talents give a boost
-    const tboost = {piano:{piano:6},theory:{theory:6},ear:{ear:6},prod:{prod:5,compose:3},compose:{compose:6},perf:{perf:5}}[S.talent]||{};
-    S.skills.ear = ear;
-    S.skills.theory = theory;
-    S.skills.piano = clamp((tboost.piano||4),0,10);
-    S.skills.prod = clamp((tboost.prod||2),0,10);
-    S.skills.compose = clamp((tboost.compose||3),0,10);
-    S.skills.perf = clamp((tboost.perf||2),0,10);
-    S.skills.theory = clamp(Math.max(S.skills.theory, tboost.theory||0),0,10);
-    S.skills.ear = clamp(Math.max(S.skills.ear, tboost.ear||0),0,10);
-    // initial portfolio note
-    save();
-    const ds = derivedSkills();
-    const radar = ds.map(d=>({label:d.nm,val:d.v}));
-    modal(`<h3>📊 你的音乐能力雷达</h3>
-      <div class="msub">检测完成！系统已据此设定你的初始属性与起点技能树。</div>
-      <div style="text-align:center"><canvas id="aradar" width="320" height="320"></canvas></div>
-      <div class="panel" style="margin:10px 0">
-        ${ds.map(d=>`<div class="skill-row"><div class="top"><span class="nm">${d.nm}</span><span class="vl">${Math.round(d.v)}/10</span></div>${stars(d.v)}</div>`).join("")}
-      </div>
-      <div class="mrow" style="justify-content:flex-end">
-        <button class="btn gold" id="a-enter">🚪 进入我的音乐人生</button>
-      </div>`);
-    setTimeout(()=>{ const c=$("aradar"); if(c) drawRadar(c, radar); },50);
-    $("a-enter").onclick=()=>{ closeModal(); toast("欢迎来到音乐人生！","🎉"); showView("home"); };
-  }
-
-  showStep();
-}
-
 /* ---------------- Boot ---------------- */
 function buildIntro(){
   const avatars=["🎧","🎹","🎻","🎤","🎼","🪕","🎷","🌟"];
@@ -1316,7 +1095,8 @@ function buildIntro(){
     S.talent = ($("talent-pick").querySelector(".sel")||{}).dataset?.t || "piano";
     save();
     enterApp();
-    startAssessment();
+    // 不再做能力检测：进来先问今天练什么乐器、想学什么，再排今日清单
+    if(window.MLQUEST && window.MLQUEST.openPlanWizard) setTimeout(()=> window.MLQUEST.openPlanWizard(), 300);
   };
 }
 function enterApp(){
@@ -1343,7 +1123,7 @@ window.ML = {
   save, renderShell, showView, buildNav,
   VIEWS, NAV,
   D, AE, toast, modal, stars, clamp, drawRadar, derivedSkills, addExp,
-  titleForLevel
+  titleForLevel, addPortfolio, openPlanMaker, triggerEvent
 };
 
 /* ---------------- Init ---------------- */
