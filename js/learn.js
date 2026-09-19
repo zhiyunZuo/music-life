@@ -160,8 +160,8 @@ function staffSVG(midis){
    ============================================================ */
 const TABS = [
   {id:"map",em:"🗺",nm:"知识地图"},
-  {id:"book",em:"📚",nm:"教材路径"},
-  {id:"vocab",em:"🎨",nm:"音乐词典"}
+  {id:"library",em:"📖",nm:"专业书库"},
+  {id:"vocab",em:"📕",nm:"音乐词典"}
 ];
 const LEARN_RENDERERS = {};
 let hubTab="map";
@@ -177,7 +177,7 @@ function renderLearnHub(){
   tabs.querySelectorAll(".tab").forEach(b=> b.onclick=()=>{ hubTab=b.dataset.t; renderLearnHub(); });
   const body=$("learn-body");
   if(hubTab==="map"){ renderKnowledgeMap(body); }
-  else if(hubTab==="book") renderTextbook(body);
+  else if(hubTab==="library") renderLibrary(body);
   else if(hubTab==="lab") renderMusicLab(body);
   else if(hubTab==="feel") renderFeeling(body);
   else if(hubTab==="vocab") renderVocab(body);
@@ -1427,38 +1427,135 @@ function renderDomainTree(body, domain){
   body.querySelectorAll(".km-node[data-lid]").forEach(c=> c.onclick=()=>{ renderLesson(body,c.dataset.lid); });
 }
 
-/* ---------- Textbook PATH （所有课程已开放，无锁定 / 无前置门槛） ---------- */
-function renderTextbook(body){
-  const paths = D.PATHS.map(p=>{
-    const items = p.lessons.map(lid=>{
-      const l=D.LESSONS.find(x=>x.id===lid);
-      return `<div class="chain-step" data-lid="${lid}" style="cursor:pointer">
-        <div class="chain-dot">🎵</div>
-        <div class="chain-body"><div class="ct">${l.emoji} ${l.title}</div>
-        <div class="cd">${zhTier(l.tier)}</div></div>
+/* ---------- 专业音乐阅读书库 ----------
+   这里不再是课程列表，而是真正值得音乐学习者阅读的专业书籍：
+   含 每日音乐阅读、按方向 / 阶段筛选、每本书的内容摘要与推荐理由，
+   以及「应该配合知识地图的哪些节点读」。
+   ------------------------------------------------------------------ */
+function nodeLabel(id){
+  for(const d of DOMAINS){
+    if(d.id===id) return (d.em||"•")+" "+d.zh;
+    for(const c of (d.children||[])) if(c.id===id) return (c.em||"•")+" "+c.zh;
+  }
+  return id;
+}
+function escHtml(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function dayOfYear(){
+  const d=new Date();
+  const start=new Date(d.getFullYear(),0,0);
+  return Math.floor((d-start)/86400000);
+}
+function renderLibrary(body){
+  const LB = window.MLBOOKS, RD = window.MLREADINGS;
+  if(!LB || !LB.BOOKS || !LB.BOOKS.length){
+    body.innerHTML=`<div class="panel"><h2>📖 专业书库</h2>
+      <div class="sub">书库数据尚未加载。</div></div>`;
+    return;
+  }
+  const pool = (RD && RD.POOL) ? RD.POOL : [];
+  let rdIdx = dayOfYear() % Math.max(pool.length,1);
+  let field = "all", stage = "all", kw = "";
+
+  const STAGES = ["入门","初级","中级","进阶","专业"];
+  const dateStr = (()=>{ const d=new Date(); return d.getFullYear()+" 年 "+(d.getMonth()+1)+" 月 "+d.getDate()+" 日"; })();
+
+  body.innerHTML = `
+    <div class="panel read-card" id="rd-card">
+      <div class="rc-kicker">DAILY MUSIC READING · 今日音乐阅读</div>
+      <div class="rc-date">${dateStr}</div>
+      <div id="rd-body"></div>
+      <div class="mrow" style="margin-top:12px">
+        <button class="btn sm gold" id="rd-next">🎲 换一篇</button>
+        <button class="btn ghost sm" id="rd-back">↩ 回到今日推荐</button>
+      </div>
+      <div class="sub" style="margin-top:10px">以上为围绕专业著作所做的原创摘要与引申，不是原书译文；想深入请去读原书。</div>
+    </div>
+    <div class="panel">
+      <h2>📖 专业音乐书库 · MUSIC READING LIBRARY</h2>
+      <div class="sub">收录国内外专业音乐院校长期使用的教材、公开课推荐阅读与公认经典。
+        每本书标注了<b>所属方向</b>、<b>适合阶段</b>、主要内容、推荐理由，以及应当配合知识地图的哪些节点阅读。
+        括号中的国籍与原著名用于帮助您准确核对版本，中译本情况请以图书馆或出版社目录为准。</div>
+      <input class="bk-inp" id="bk-q" placeholder="搜索书名 / 作者 / 关键词…" autocomplete="off">
+      <div class="chip-row" id="bk-fields"></div>
+      <div class="chip-row" id="bk-stages"></div>
+      <div class="bk-count" id="bk-count"></div>
+      <div class="bk-grid" id="bk-list"></div>
+      <div class="sub" id="bk-empty" style="display:none">没有匹配的书。换个关键词或方向试试。</div>
+    </div>`;
+
+  function drawReading(){
+    if(!pool.length){ $("rd-body").innerHTML=`<div class="sub">今日阅读暂不可用。</div>`; return; }
+    const r = pool[rdIdx % pool.length];
+    const fn = (LB.FIELDS.find(f=>f.id===r.fi)||{}).nm || "综合";
+    $("rd-body").innerHTML = `
+      <h3 class="rc-ttl">${escHtml(r.ttl)}</h3>
+      <div class="rc-src">📚 ${escHtml(r.t)} <span class="rc-dot">·</span> ${escHtml(r.a)}
+        <span class="tag">${fn}</span></div>
+      <div class="rc-text">${escHtml(r.body)}</div>
+      <div class="rc-q"><b>值得思考：</b>${escHtml(r.q)}</div>
+      <div class="rc-nodes">${(r.rel||[]).map(n=>`<span class="tag">${escHtml(nodeLabel(n))}</span>`).join("")}</div>`;
+  }
+  $("rd-next").onclick = ()=>{ rdIdx = (rdIdx + 1 + Math.floor(Math.random()*3)) % pool.length; drawReading(); };
+  $("rd-back").onclick = ()=>{ rdIdx = dayOfYear() % pool.length; drawReading(); };
+  drawReading();
+
+  $("bk-fields").innerHTML = `<span class="chip ${field==="all"?"on":""}" data-f="all">全部方向</span>` +
+    LB.FIELDS.map(f=>`<span class="chip ${field===f.id?"on":""}" data-f="${f.id}">${f.em} ${f.nm}</span>`).join("");
+  $("bk-stages").innerHTML = `<span class="chip ${stage==="all"?"on":""}" data-s="all">全部阶段</span>` +
+    STAGES.map(s=>`<span class="chip ${stage===s?"on":""}" data-s="${s}">${s}</span>`).join("");
+
+  function drawBooks(){
+    const list = LB.BOOKS.filter(b=>{
+      if(field!=="all" && b.fi!==field) return false;
+      if(stage!=="all" && b.st!==stage) return false;
+      if(kw){
+        const hay=(b.t+" "+b.a+" "+(b.o||"")+" "+b.intro+" "+b.why+" "+(LB.FIELDS.find(f=>f.id===b.fi)||{}).nm).toLowerCase();
+        if(hay.indexOf(kw.toLowerCase())<0) return false;
+      }
+      return true;
+    });
+    $("bk-count").textContent = `共 ${list.length} 本` + (LB.BOOKS.length!==list.length?`（全部 ${LB.BOOKS.length} 本）`:"");
+    $("bk-empty").style.display = list.length? "none":"block";
+    $("bk-list").innerHTML = list.map(b=>{
+      const f = LB.FIELDS.find(x=>x.id===b.fi)||{};
+      return `<div class="bk-card" data-t="${b.t}">
+        <div class="bk-head">
+          <div class="bk-title">${escHtml(b.t)}</div>
+          <div class="bk-author">${escHtml(b.a)}</div>
+        </div>
+        ${b.o?`<div class="bk-org">原名：${escHtml(b.o)}</div>`:""}
+        <div class="bk-tags">
+          <span class="tag gold">${f.em||""} ${f.nm||""}</span>
+          <span class="tag">${escHtml(b.st)}</span>
+        </div>
+        <div class="bk-sec"><span class="bk-k">主要内容</span>${escHtml(b.intro)}</div>
+        <div class="bk-sec"><span class="bk-k">推荐理由</span>${escHtml(b.why)}</div>
+        ${b.org?`<div class="bk-sec"><span class="bk-k">版本信息</span>${escHtml(b.org)}</div>`:""}
+        ${b.notes?`<div class="bk-note">※ ${escHtml(b.notes)}</div>`:""}
+        <div class="bk-rel"><span class="bk-k">配合节点</span>
+          ${(b.nodes||[]).map(n=>`<span class="tag sm" data-n="${n}">${escHtml(nodeLabel(n))}</span>`).join("")}
+        </div>
       </div>`;
     }).join("");
-    return `<div class="panel">
-      <h2>${p.emoji} ${p.name}</h2>
-      <div class="sub">点任意一课直接进入，自由探索。先做你最想学的那节即可。</div>
-      <div class="chain">${items}</div></div>`;
-  }).join("");
-  body.innerHTML = `
-    <div class="panel">
-      <h2>📚 教材路径（TEXTBOOK PATH）</h2>
-      <div class="sub">专业课程模式：基础和声 → 功能和声 → 离调转调 → 高级色彩。课程含 理论 / 练耳 / 分析 / 写作 / 演奏 / 考试。所有课程直接可学，自由探索即可。</div>
-    </div>
-    ${paths}
-    <div class="panel">
-      <h2>🔍 课程直达（任意一课）</h2>
-      <div class="sub">下面是所有课程，点任意一节直接进入。</div>
-      <div id="prereq-box"></div>
-    </div>`;
-  const box=$("prereq-box");
-  box.innerHTML = D.LESSONS.map(l=>`<button class="event-opt" style="width:100%;margin-bottom:8px" data-id="${l.id}">
-    <div class="eo-t">${l.emoji} ${l.title}</div>
-    <div style="font-size:11px;color:#9aa3b8;margin-top:3px">直接进入 →</div></button>`).join("");
-  box.querySelectorAll(".event-opt").forEach(b=> b.onclick=()=>{ renderLesson(body, b.dataset.id); });
+    $("bk-list").querySelectorAll(".tag[data-n]").forEach(c=> c.onclick=e=>{
+      e.stopPropagation();
+      try{ const lid=c.dataset.n; if(typeof resolveLesson==="function" && resolveLesson(lid)){ hubTab="lesson"; renderLesson(body, lid); } }
+      catch(err){ /* 该节点不是可直接打开的课程，保持原样 */ }
+    });
+  }
+
+  $("bk-q").oninput = e=>{ kw=e.target.value.trim(); drawBooks(); };
+  $("bk-fields").querySelectorAll(".chip").forEach(c=> c.onclick=()=>{
+    field=c.dataset.f;
+    $("bk-fields").querySelectorAll(".chip").forEach(x=> x.classList.toggle("on", x===c));
+    drawBooks();
+  });
+  $("bk-stages").querySelectorAll(".chip").forEach(c=> c.onclick=()=>{
+    stage=c.dataset.s;
+    $("bk-stages").querySelectorAll(".chip").forEach(x=> x.classList.toggle("on", x===c));
+    drawBooks();
+  });
+  drawBooks();
 }
 
 /* ============================================================
@@ -1895,17 +1992,102 @@ function showFeel(f){
 /* ============================================================
    VOCAB
    ============================================================ */
+/* ---------- 专业音乐术语词典 ----------
+   收录乐谱、演奏、作曲、编曲、分析与高级学习中真正会遇到的术语，
+   尤其覆盖意大利语 / 德语 / 法语乐谱语与各行当的行话。
+   每条含：中文解释 / 音乐中的含义 / 谱面怎么看 / 演奏创作如何理解 / 例子。
+   ------------------------------------------------------------------ */
 function renderVocab(body){
-  body.innerHTML=`<div class="panel"><h2>🎨 MUSIC VOCABULARY · 音乐语言词典</h2>
-    <div class="sub">把日常语言翻译成音乐语言。注意：这些不是固定公式，只是常见的音乐表达手段。</div>
-    <div id="vocab-list"></div></div>`;
-  $("vocab-list").innerHTML=D.VOCAB.map(v=>`
-    <div class="quest-item" style="cursor:default">
-      <div class="qem">🎴</div>
-      <div class="qbody"><div class="qt">${v.w}</div>
-      <div class="qd">${v.items.map(i=>`<span class="tag">${i}</span>`).join("")}</div>
-      <div class="pm" style="color:#cbbfa6;margin-top:6px">${v.note}</div></div>
-    </div>`).join("");
+  const G = window.MLGLOSSARY;
+  if(!G || !G.TERMS || !G.TERMS.length){
+    body.innerHTML=`<div class="panel"><h2>📕 音乐词典</h2>
+      <div class="sub">词典数据尚未加载。</div></div>`;
+    return;
+  }
+  const ALL = G.TERMS;
+  const AZ = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+  let kw="", cat="all", lang="all", letter="all", open={};
+
+  const sortTerms = t => t.slice().sort((a,b)=> a.w.toLowerCase().localeCompare(b.w.toLowerCase()));
+
+  body.innerHTML = `
+    <div class="panel">
+      <h2>📕 专业音乐术语词典 · MUSIC TERMINOLOGY</h2>
+      <div class="sub">面向高级乐谱、专业教材、作品分析与大师课：意大利语、德语、法语乐谱语，
+        演奏表情、弓法、键盘、管弦乐、作曲技法、曲式、和声、复调、爵士、配器与音乐制作术语。
+        点任意词条展开它的<b>中文解释 / 音乐中的含义 / 谱面怎么看 / 演奏创作如何理解 / 例子</b>。</div>
+      <input class="bk-inp" id="gl-q" placeholder="搜索术语（中文或原文）…" autocomplete="off">
+      <div class="chip-row" id="gl-langs"></div>
+      <div class="chip-row" id="gl-cats"></div>
+      <div class="az-row" id="gl-az"></div>
+      <div class="bk-count" id="gl-count"></div>
+      <div class="gl-list" id="gl-list"></div>
+      <div class="sub" id="gl-empty" style="display:none">没有匹配的术语。可以直接搜中文意思试试。</div>
+    </div>`;
+
+  $("gl-langs").innerHTML = `<span class="chip ${lang==="all"?"on":""}" data-l="all">全部语言</span>` +
+    G.LANGS.map(l=>`<span class="chip ${lang===l.id?"on":""}" data-l="${l.id}">${l.nm}</span>`).join("");
+  $("gl-cats").innerHTML = `<span class="chip ${cat==="all"?"on":""}" data-c="all">全部领域</span>` +
+    G.CATS.map(c=>`<span class="chip ${cat===c.id?"on":""}" data-c="${c.id}">${c.em} ${c.nm}</span>`).join("");
+  $("gl-az").innerHTML = `<span class="az-b ${letter==="all"?"on":""}" data-a="all">全</span>` +
+    AZ.map(a=>`<span class="az-b ${letter===a?"on":""}" data-a="${a}">${a}</span>`).join("");
+
+  function drawTerms(){
+    const list = sortTerms(ALL.filter(t=>{
+      if(cat!=="all" && t.cat!==cat) return false;
+      if(lang!=="all" && t.lang!==lang) return false;
+      if(letter!=="all" && (t.w[0]||"").toUpperCase()!==letter) return false;
+      if(kw){
+        const hay=(t.w+" "+(t.cn||"")+" "+(t.def||"")+" "+(t.inMusic||"")+" "+(t.how||"")).toLowerCase();
+        if(hay.indexOf(kw.toLowerCase())<0) return false;
+      }
+      return true;
+    }));
+    const catNm = id => ((G.CATS.find(c=>c.id===id)||{}).nm || id);
+    const langNm = id => ((G.LANGS.find(l=>l.id===id)||{}).nm || id);
+    $("gl-count").textContent = `共 ${list.length} 条` + (ALL.length!==list.length?`（全部 ${ALL.length} 条）`:"");
+    $("gl-empty").style.display = list.length? "none":"block";
+    $("gl-list").innerHTML = list.map((t,i)=>{
+      const key = t.w+"|"+t.cat;
+      const on = !!open[key];
+      return `<div class="gl-item ${on?"open":""}" data-k="${escHtml(key)}" data-i="${i}">
+        <div class="gl-head">
+          <span class="gl-w">${escHtml(t.w)}</span>
+          <span class="gl-cn">${escHtml(t.cn||"")}</span>
+          <span class="tag">${langNm(t.lang)}</span>
+          <span class="tag">${(G.CATS.find(c=>c.id===t.cat)||{}).em||""} ${catNm(t.cat)}</span>
+          <span class="gl-lv" title="难度 ${t.lv}">${"●".repeat(Math.max(1,Math.min(5,t.lv||1)))}</span>
+          <span class="gl-arrow">${on?"▲":"▼"}</span>
+        </div>
+        ${on?`<div class="gl-body">
+          <div class="gl-row"><span class="gl-k">释义</span><span class="gl-v">${escHtml(t.def)}</span></div>
+          <div class="gl-row"><span class="gl-k">音乐中的含义</span><span class="gl-v">${escHtml(t.inMusic)}</span></div>
+          <div class="gl-row"><span class="gl-k">谱面怎么看</span><span class="gl-v">${escHtml(t.inScore)}</span></div>
+          <div class="gl-row"><span class="gl-k">演奏 / 创作怎么理解</span><span class="gl-v">${escHtml(t.how)}</span></div>
+          <div class="gl-row"><span class="gl-k">例子</span><span class="gl-v">${escHtml(t.eg)}</span></div>
+        </div>`:""}
+      </div>`;
+    }).join("");
+    $("gl-list").querySelectorAll(".gl-item").forEach(el=> el.onclick=()=>{
+      const k=el.dataset.k; open[k]=!open[k];
+      const keepScroll = window.scrollY;
+      drawTerms();
+      window.scrollTo(0, keepScroll);
+    });
+  }
+
+  $("gl-q").oninput = e=>{ kw=e.target.value.trim(); drawTerms(); };
+  const bindRow = (rowName, attr, setter)=>{
+    $(rowName).querySelectorAll(".chip, .az-b").forEach(c=> c.onclick=()=>{
+      setter(c.dataset[attr]);
+      $(rowName).querySelectorAll(".chip, .az-b").forEach(x=> x.classList.toggle("on", x===c));
+      drawTerms();
+    });
+  };
+  bindRow("gl-langs","l",v=>lang=v);
+  bindRow("gl-cats","c",v=>cat=v);
+  bindRow("gl-az","a",v=>letter=v);
+  drawTerms();
 }
 
 /* ============================================================
