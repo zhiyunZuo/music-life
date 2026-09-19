@@ -1,3 +1,4 @@
+
 /* ============================================================
    MUSIC LIFE · 音乐人生 RPG  —  Design System
    Palette: 深夜蓝 / 奶油白 / 紫罗兰 / 暖金 / 深酒红 / 墨绿 + 霓虹反馈
@@ -13,6 +14,7 @@
   --line-soft:rgba(255,255,255,.06);
   --cream:#f3ead6;
   --cream-dim:#cbbfa6;
+  --dim:#9aa3b8;
   --violet:#9d4edd;
   --violet-bright:#c77dff;
   --gold:#e0a96d;
@@ -52,6 +54,38 @@ body::before{
     repeating-linear-gradient(0deg, rgba(255,255,255,.018) 0 1px, transparent 1px 38px),
     repeating-linear-gradient(90deg, rgba(255,255,255,.018) 0 1px, transparent 1px 38px);
   mask-image:radial-gradient(circle at 50% 40%, black, transparent 85%);
+}
+
+/* ================= 乐器知识库：标签页 + 知识库条目 ================= */
+.itabs{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0 4px}
+.itab{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:999px;
+  border:1px solid rgba(224,169,109,.22);background:rgba(255,255,255,.03);color:var(--cream-dim);
+  font-size:13px;cursor:pointer;transition:.2s;font-family:inherit}
+.itab i{font-style:normal;font-size:11px;padding:1px 6px;border-radius:999px;
+  background:rgba(224,169,109,.14);color:var(--gold)}
+.itab:hover{border-color:rgba(224,169,109,.45);color:var(--cream)}
+.itab.on{background:linear-gradient(135deg,rgba(224,169,109,.22),rgba(157,78,221,.18));
+  border-color:rgba(224,169,109,.6);color:#fff;font-weight:700}
+
+.kb-meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px}
+.kb-m{padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.035);
+  border:1px solid rgba(255,255,255,.06)}
+.kb-m span{display:block;font-size:11px;letter-spacing:.06em;color:var(--dim);margin-bottom:4px}
+.kb-m b{font-size:13.5px;color:var(--cream);font-weight:600;line-height:1.5}
+
+.kb-item{padding:14px 0;border-top:1px solid rgba(255,255,255,.07)}
+.kb-item:first-of-type{border-top:none}
+.kb-k{font-size:13px;font-weight:700;color:var(--gold);letter-spacing:.04em;margin-bottom:7px;
+  display:flex;align-items:center;gap:7px}
+.kb-k::before{content:"";width:3px;height:14px;border-radius:2px;background:var(--gold);opacity:.75}
+.kb-v{font-size:14px;line-height:1.95;color:var(--cream-dim);white-space:pre-wrap}
+.kb-v b{color:var(--cream);font-weight:700}
+.kb-item:last-of-type .kb-k{color:#7fd6c2}
+.kb-item:last-of-type .kb-k::before{background:#7fd6c2}
+.kb-item:last-of-type .kb-v{font-size:13px;color:var(--dim)}
+@media(max-width:560px){
+  .itab{padding:6px 11px;font-size:12px}
+  .kb-v{font-size:13.5px;line-height:1.85}
 }
 button{font-family:var(--font-ui);cursor:pointer;border:none;color:inherit}
 input,select,textarea{font-family:var(--font-cn)}
@@ -803,3 +837,65 @@ body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opac
   .qz-chips{grid-template-columns:1fr 1fr;max-height:52vh}
   .qz-d{display:none}
 }
+
+/* ================= 音乐历史长河 ================= */
+.fig-card{border:1px solid rgba(224,169,109,.22);border-radius:14px;padding:16px 18px;
+  background:linear-gradient(160deg,rgba(224,169,109,.08),rgba(157,78,221,.06))}
+.fig-card.fig-big{padding:20px 22px}
+.fig-hd{display:flex;flex-wrap:wrap;align-items:baseline;gap:10px;margin-bottom:8px}
+.fig-nm{font-size:20px;font-weight:700;color:var(--cream);letter-spacing:.02em}
+.fig-en{font-family:var(--font-disp);font-size:12px;color:var(--txt-dim);margin-left:10px;letter-spacing:.06em}
+.fig-meta{font-size:12px;color:var(--gold);font-family:var(--font-ui);letter-spacing:.03em}
+.fig-tag{font-size:14.5px;line-height:1.7;color:var(--cream-dim);margin-bottom:10px}
+.fig-works{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.wk-chip{font-size:11.5px;padding:3px 10px;border-radius:999px;
+  background:rgba(0,245,212,.10);border:1px solid rgba(0,245,212,.28);color:var(--neon)}
+.fig-why{font-size:13.5px;line-height:1.95;color:var(--cream-dim);border-top:1px dashed rgba(255,255,255,.09);padding-top:12px}
+.fig-do{margin-top:12px;font-size:13.5px;line-height:1.95;color:var(--cream);
+  background:rgba(157,78,221,.10);border:1px solid var(--line-soft);border-radius:12px;padding:12px 14px}
+.fig-do b{color:var(--gold-bright)}
+.fig-row{display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:12px;cursor:pointer;
+  border:1px solid transparent;transition:.15s}
+.fig-row:hover{background:rgba(255,255,255,.045);border-color:rgba(224,169,109,.28)}
+.fig-row .fig-em{font-size:16px;flex:none}
+.fig-row .fig-t{font-size:14px;color:var(--cream);font-weight:600;flex:none}
+.fig-row .fig-t i{font-style:normal;font-size:11.5px;color:var(--txt-dim);margin-left:6px}
+.fig-row .fig-s{font-size:12.5px;color:var(--txt-dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ev-row{display:flex;gap:14px;padding:12px 0;border-top:1px solid rgba(255,255,255,.06)}
+.ev-row:first-of-type{border-top:none}
+.ev-y{font-family:var(--font-disp);font-size:14px;color:var(--gold-bright);width:56px;flex:none;padding-top:1px}
+.ev-b{flex:1}
+.ev-t{font-size:14px;color:var(--cream);font-weight:600;margin-bottom:4px}
+.ev-d{font-size:12.5px;line-height:1.8;color:var(--cream-dim)}
+@media(max-width:560px){
+  .fig-nm{font-size:17px}
+  .fig-row{flex-wrap:wrap}
+  .fig-row .fig-s{white-space:normal}
+}
+
+/* ================= 音乐实践中心 ================= */
+.pc-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px}
+.pc-s{padding:12px 14px;border-radius:12px;background:rgba(255,255,255,.035);
+  border:1px solid rgba(255,255,255,.07);text-align:center}
+.pc-s span{display:block;font-size:11px;color:var(--txt-dim);letter-spacing:.06em;margin-bottom:5px}
+.pc-s b{font-family:var(--font-disp);font-size:22px;color:var(--gold-bright)}
+.pc-item{padding:14px 0;border-top:1px solid rgba(255,255,255,.07)}
+.pc-item:first-of-type{border-top:none}
+.pc-t{font-size:15px;font-weight:700;color:var(--cream);margin-bottom:8px;
+  display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.pc-min{font-size:11px;color:var(--txt-dim);font-weight:400;
+  background:rgba(157,78,221,.14);border-radius:999px;padding:2px 9px}
+.pc-how,.pc-check{font-size:13px;line-height:1.85;color:var(--cream-dim);margin-bottom:6px}
+.pc-how b,.pc-check b{color:var(--gold);font-weight:700;margin-right:6px}
+.pc-check{background:rgba(0,245,212,.05);border-left:2px solid rgba(0,245,212,.35);padding:8px 12px;border-radius:0 10px 10px 0}
+.pc-last{font-size:11.5px;color:var(--txt-dim);margin:8px 0}
+.pc-form{margin-top:10px;padding:12px 14px;border-radius:12px;
+  background:rgba(157,78,221,.08);border:1px solid var(--line-soft)}
+.pf-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.pf-row label{font-size:12px;color:var(--cream-dim);width:96px;flex:none}
+.pf-row input{flex:1;background:rgba(7,11,20,.6);border:1px solid var(--line-soft);
+  border-radius:8px;padding:7px 10px;color:var(--cream);font-size:13px;font-family:inherit}
+.pf-row input:focus{outline:none;border-color:rgba(224,169,109,.5)}
+.pc-weak{margin-top:10px;font-size:12.5px;color:var(--cream-dim)}
+.pc-weak b{color:var(--gold);display:block;margin-bottom:6px}
+.pc-ear{margin-bottom:10px}

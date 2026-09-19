@@ -18,7 +18,8 @@ function defaultState(){
     skills:{piano:3, theory:3, ear:3, prod:1, perf:2, compose:2},
     skillNodes:{}, quests:[], questDate:"", plan:null, portfolio:[],portfolioWorks:[],
     studioStep:0, instruments:inst, mentorLog:[],
-    eventsDone:0, lastEvent:"", badges:[]
+    eventsDone:0, lastEvent:"", badges:[],
+    practiceLog:[], practiceWeak:{}
   };
 }
 let S = null;
@@ -163,13 +164,20 @@ function titleForLevel(){
 }
 
 /* ---------------- Router ---------------- */
+function renderHistoryView(){
+  const W = window.MLWORLD;
+  if(!W || !W.renderHistory){ $("view").innerHTML = `<div class="panel">历史模块未加载。</div>`; return; }
+  $("view").innerHTML = W.renderHistory();
+  W.bindHistory();
+}
 const VIEWS = {
   home:renderHome, world:renderWorld, practice:renderPractice,
   instruments:renderInstruments, studio:renderStudio,
-  ear:renderEar, portfolio:renderPortfolio
+  ear:renderEar, portfolio:renderPortfolio, history:renderHistoryView
 };
 const NAV = [
   {id:"home",em:"🏠",nm:"首页"},{id:"world",em:"🗺",nm:"世界"},
+  {id:"history",em:"🏛",nm:"历史"},
   {id:"practice",em:"🎵",nm:"练习"},{id:"instruments",em:"🎹",nm:"乐器"},
   {id:"studio",em:"💻",nm:"工作室"},
   {id:"ear",em:"👂",nm:"听力"},
@@ -184,7 +192,7 @@ function buildNav(){
   });
 }
 function buildTopMenu(){
-  const items=[{t:"今日计划",v:"home"},{t:"音乐世界",v:"world"},{t:"练习",v:"practice"},{t:"作品集",v:"portfolio"}];
+  const items=[{t:"今日计划",v:"home"},{t:"音乐世界",v:"world"},{t:"历史长河",v:"history"},{t:"练习",v:"practice"},{t:"作品集",v:"portfolio"}];
   const m=$("topmenu");
   if(!m) return;
   m.innerHTML = items.map(it=>`<a data-v="${it.v}">${it.t}</a>`).join("");
@@ -381,8 +389,9 @@ const REGION_IMG_CAP = {
 };
 /* 乐器知识库配图（复用对应领域的插画） */
 const INST_IMG = {
-  piano:"t-piano", guitar:"t-guitar", violin:"t-violin",
-  sheng:"t-folk", xiao:"t-folk", flute:"t-orch", cello:"t-orch", voice:"t-pop"
+  piano:"t-piano", guitar:"t-guitar", violin:"t-classical",
+  sheng:"t-folk", xiao:"t-folk", flute:"t-orch", cello:"t-orch", voice:"t-pop",
+  harp:"t-orch", handpan:"t-sound", marimba:"t-sound", xylophone:"t-sound"
 };
 const REGION_DETAIL = {
   classical:{nm:"古典之城",topics:[["cl-baroque","巴洛克"],["cl-classic","古典主义"],["cl-rom","浪漫主义"],["cl-imp","印象主义"]],
@@ -447,10 +456,16 @@ function renderWorld(){
     <div class="kicker">WORLD OF MUSIC</div>
     <h1 class="section-title"><span class="em">🗺</span>音乐世界地图</h1>
     <p class="lead">每个区域都是一个真正可探索的知识世界：领域知识、经典作品、可播放的音乐例子、互动练习与实际任务。</p>
-    <div class="map-grid">${regions}</div>`;
+    <div class="map-grid">${regions}</div>
+    <div class="panel" style="margin-top:14px">
+      <div class="sec-tag">真实音乐史</div>
+      <div class="mrow"><button class="btn gold" id="go-history">🏛 进入音乐历史长河 · 今天遇见谁</button></div>
+      <div class="lnote">${ (window.MLWORLD && window.MLWORLD.FIGURES) ? (window.MLWORLD.FIGURES.length+" 位真实音乐家、"+window.MLWORLD.ERAS.length+" 个时期、大事年表与乐器发展线。每天进来会遇到一位不同的人。") : "历史模块未加载。" }</div>
+    </div>`;
   $("view").querySelectorAll(".region").forEach(r=>{
     r.onclick=()=> openRegion(r.dataset.id);
   });
+  const gh = $("go-history"); if(gh) gh.onclick = ()=> showView("history");
 }
 function openRegion(id){
   const reg = D.REGIONS.find(x=>x.id===id);
@@ -515,6 +530,12 @@ function openRegion(id){
 
 /* ---------------- Practice / Skill tree ---------------- */
 function renderPractice(){
+  /* 练习板块已升级为「音乐实践中心」：真实记录取代点亮节点 */
+  if(window.MLPRACTICE){
+    $("view").innerHTML = window.MLPRACTICE.render();
+    window.MLPRACTICE.bind();
+    return;
+  }
   const branches = D.SKILL_TREE.map(br=>{
     const nodes = br.nodes.map(nd=>{
       const unlocked = !nd.req || S.skillNodes[nd.req];
@@ -606,6 +627,7 @@ function renderInstruments(){
       openInstrument(id); };
   });
 }
+let instTab = "course";
 function openInstrument(id){
   const L = window.INSTRUMENT_LIB[id];
   if(!L) return;
@@ -613,12 +635,13 @@ function openInstrument(id){
   const st = S.instruments[id] || (S.instruments[id]={level:0,detected:true,done:[]});
   if(!st.done) st.done=[];
   st.detected = true;
-  const groups = ["入门","进阶","高级"].map(g=>{
+  const LVS = ["入门","进阶","高级","大师课"];
+  const tagOf = {"入门":"①","进阶":"②","高级":"③","大师课":"④"};
+  const groups = LVS.map(g=>{
     const ns = L.nodes.map((n,k)=>({n,k})).filter(o=>(o.n.lv||"入门")===g);
     if(!ns.length) return "";
-    const tag = g==="入门"?"①":g==="进阶"?"②":"③";
     return `<div class="panel">
-      <div class="sec-tag">${tag} ${g}</div>
+      <div class="sec-tag">${tagOf[g]} ${g}${g==="大师课"?" · 演奏家训练":""}</div>
       ${ns.map(o=>`<div class="kn-row" data-k="${o.k}">
         <span class="kn-em">${o.n.em}</span>
         <span class="kn-t">${o.n.t}</span>
@@ -627,6 +650,29 @@ function openInstrument(id){
     </div>`;
   }).join("");
   const pct = Math.round(st.done.length / L.nodes.length * 100);
+
+  /* 知识库 14 项 */
+  const KB_LB = {history:"历史沿革",structure:"乐器结构",acoustics:"发声原理",range:"音域与记谱",
+    timbre:"音色",technique:"演奏技术",skills:"常见技巧",repertoire:"代表曲目",styles:"音乐风格",
+    ensemble:"合奏应用",compose:"作曲应用",arrange:"编曲应用",production:"音乐制作中的应用",
+    sources:"资料来源"};
+  const META_LB = {family:"乐器家族",range:"音域",strings:"弦数",notation:"记谱",key:"关键机构"};
+  const metaHTML = L.meta ? `<div class="kb-meta">${Object.keys(L.meta).map(k=>
+      `<div class="kb-m"><span>${META_LB[k]||k}</span><b>${L.meta[k]}</b></div>`).join("")}</div>` : "";
+  const kbHTML = Object.keys(KB_LB).map(k=> (L.kb && L.kb[k]) ? `
+      <div class="kb-item">
+        <div class="kb-k">${KB_LB[k]}</div>
+        <div class="kb-v">${mdb(L.kb[k])}</div>
+      </div>` : "").join("");
+  const diagHTML = (window.MLDIAG && L.panels && L.panels.length) ? MLDIAG.renderStrip(L.panels) : "";
+
+  if(!instTab) instTab = "course";
+  const tabs = [["course","📚 课程",""+L.nodes.length],["kb","🗂 知识库","14"],["pic","🖼 图解",""+(L.panels||[]).length]]
+    .map(t=>`<button class="itab ${instTab===t[0]?"on":""}" data-tb="${t[0]}">${t[1]} <i>${t[2]}</i></button>`).join("");
+  const body = instTab==="course" ? groups
+    : instTab==="kb" ? `<div class="panel">${metaHTML}${kbHTML}</div>`
+    : `<div class="panel"><div class="sub">乐器结构、音域位置与关键机制的矢量图解。</div></div>${diagHTML||'<div class="panel"><div class="sub">这件乐器暂无图解。</div></div>'}`;
+
   $("view").innerHTML = `
     <div class="kicker">${i.em} ${L.nm} LIBRARY</div>
     <h1 class="section-title"><span class="em">${i.em}</span>${L.nm}知识库</h1>
@@ -638,8 +684,10 @@ function openInstrument(id){
         <span class="lab-note" style="margin-left:auto">进度 ${st.done.length} / ${L.nodes.length} 节（${pct}%）</span>
       </div>
     </div>
-    ${groups}`;
+    <div class="itabs">${tabs}</div>
+    ${body}`;
   $("inst-back").onclick=renderInstruments;
+  $("view").querySelectorAll(".itab").forEach(b=> b.onclick=()=>{ instTab=b.dataset.tb; openInstrument(id); });
   $("view").querySelectorAll(".kn-row").forEach(r=>{
     r.onclick=()=> openInstNode(id, +r.dataset.k);
   });
@@ -654,10 +702,11 @@ function openInstNode(id, k){
     <div class="kicker">${L.nm} · ${n.lv||"入门"}</div>
     <h1 class="section-title"><span class="em">${n.em}</span>${n.t}</h1>
     ${ INST_IMG[id] ? `<div class="lesson-hero slim"><img src="assets/teach/${INST_IMG[id]}.webp" alt="${L.nm}" loading="lazy" decoding="async"></div>` : "" }
-    <div class="panel"><div class="sec-tag">① 专业讲解</div><div class="lnote">${n.explain}</div></div>
-    <div class="panel"><div class="sec-tag">② 实际示范</div><div class="lnote">${n.demo}</div></div>
-    <div class="panel"><div class="sec-tag">③ 音乐应用</div><div class="lnote">${n.apply}</div></div>
-    <div class="panel"><div class="sec-tag">④ 操作练习</div><div class="lnote">${n.task}</div>
+    <div class="panel"><div class="sec-tag">① 专业讲解</div><div class="lnote">${mdb(n.explain)}</div></div>
+    ${ (window.MLDIAG && n.panels && n.panels.length) ? MLDIAG.renderStrip(n.panels) : "" }
+    <div class="panel"><div class="sec-tag">② 实际示范</div><div class="lnote">${mdb(n.demo)}</div></div>
+    <div class="panel"><div class="sec-tag">③ 音乐应用</div><div class="lnote">${mdb(n.apply)}</div></div>
+    <div class="panel"><div class="sec-tag">④ 操作练习</div><div class="lnote">${mdb(n.task)}</div>
       <div class="piano-wrap" id="ik-piano" style="margin-top:10px"></div>
       <div class="mrow"><button class="btn sm" id="ik-replay">↻ 回放</button><button class="btn ghost sm" id="ik-clear">清空</button></div>
     </div>
