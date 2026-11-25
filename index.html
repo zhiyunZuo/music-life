@@ -4,10 +4,20 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <title>MUSIC LIFE · 音乐人生 RPG</title>
+<!-- 网页字体改为“非阻塞”加载：即使 fonts.googleapis.com 连不上（国内常见），页面也能立刻渲染，不会一直白屏 -->
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&family=Noto+Serif+SC:wght@500;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" media="print" onload="this.media='all'"
+      href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&family=Noto+Serif+SC:wght@500;700&display=swap" />
 <link rel="stylesheet" href="css/style.css" />
+<style>
+/* 本地字体兜底：Google Fonts 拿不到时用系统宋体/黑体顶上，保证字形不塌 */
+:root{
+  --font-disp:'Orbitron','Rajdhani','PingFang SC','Microsoft YaHei',"Noto Serif SC",system-ui,serif;
+  --font-ui:'Rajdhani','PingFang SC','Microsoft YaHei',"Noto Serif SC",system-ui,sans-serif;
+  --font-cn:"Noto Serif SC","Songti SC",'STSong','SimSun',"PingFang SC","Microsoft YaHei",serif;
+}
+</style>
 </head>
 <body>
 <div id="boot-flash"></div>
