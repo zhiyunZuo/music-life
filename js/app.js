@@ -1122,29 +1122,24 @@ function skillName(k){
 
 /* ---------------- Boot ---------------- */
 function buildIntro(){
-  const avatars=["🎧","🎹","🎻","🎤","🎼","🪕","🎷","🌟"];
-  $("avatar-pick").innerHTML = avatars.map((a,i)=>
-    `<div class="avatar-opt ${i===0?'sel':''}" data-a="${a}"><span class="em">${a}</span><span class="nm">形象${i+1}</span></div>`).join("");
-  const talents=[{k:"piano",em:"🎹",nm:"钢琴"},
-    {k:"theory",em:"🎼",nm:"乐理"},{k:"ear",em:"👂",nm:"听觉"},
-    {k:"prod",em:"💻",nm:"制作"},{k:"compose",em:"🎵",nm:"作曲"},{k:"perf",em:"🎤",nm:"演出"}];
-  $("talent-pick").innerHTML = talents.map((t,i)=>
-    `<div class="talent-opt ${i===0?'sel':''}" data-t="${t.k}"><span class="em">${t.em}</span><span class="nm">${t.nm}</span></div>`).join("");
-  $("avatar-pick").querySelectorAll(".avatar-opt").forEach(o=> o.onclick=()=>{
-    $("avatar-pick").querySelectorAll(".avatar-opt").forEach(x=>x.classList.remove("sel")); o.classList.add("sel"); });
-  $("talent-pick").querySelectorAll(".talent-opt").forEach(o=> o.onclick=()=>{
-    $("talent-pick").querySelectorAll(".talent-opt").forEach(x=>x.classList.remove("sel")); o.classList.add("sel"); });
-
-  $("btn-start").onclick=()=>{
+  // 开场只有一段动画：不再收集昵称 / 形象 / 天赋，全部用默认档案
+  const cine = $("cine");
+  if(cine && !cine.dataset.bound){
+    cine.dataset.bound = "1";
+    cine.addEventListener("click", (e)=>{
+      if(e.target.closest("#btn-start")) return; // 点按钮走开始，不当作跳过
+      cine.classList.add("skip");                 // 动画期间轻触任意处直达终态
+    });
+  }
+  $("btn-start").onclick = ()=>{
     AE.ensure();
-    const name = ($("inp-name").value||"").trim() || "音乐人";
     S = defaultState();
-    S.name = name.slice(0,12);
-    S.avatar = ($("avatar-pick").querySelector(".sel")||{}).dataset?.a || "🎧";
-    S.talent = ($("talent-pick").querySelector(".sel")||{}).dataset?.t || "piano";
+    S.name = "音乐人";
+    S.avatar = "🎧";
+    S.talent = "piano";
     save();
     enterApp();
-    // 不再做能力检测：进来先问今天练什么乐器、想学什么，再排今日清单
+    // 进来先问今天练什么乐器、想学什么，再排今日清单
     if(window.MLQUEST && window.MLQUEST.openPlanWizard) setTimeout(()=> window.MLQUEST.openPlanWizard(), 300);
   };
 }
@@ -1156,11 +1151,11 @@ function enterApp(){
   showView("home");
 }
 function maybeIntro(){
-  if(S && S.name && S.name!=="音乐人" && localStorage.getItem(SAVE_KEY)){
-    // returning user with save
-    const saved = JSON.parse(localStorage.getItem(SAVE_KEY));
+  // 只要有存档就视为返回用户，直接进主界面（开场动画只在第一次出现）
+  try{
+    const saved = JSON.parse(localStorage.getItem(SAVE_KEY) || "null");
     if(saved && saved.name){ enterApp(); return; }
-  }
+  }catch(e){}
   $("screen-intro").classList.add("active");
   buildIntro();
 }
